@@ -67,6 +67,12 @@ const emit = (s, ev, d) => new Promise(r => s.emit(ev, d, r));
   const yta2 = once(a, "video:set");
   b.emit("video:set", { url: "<iframe src=\"https://www.youtube.com/embed/dQw4w9WgXcQ\"></iframe>" });
   assert.strictEqual((await yta2).id, "dQw4w9WgXcQ");
+  // embed s popisa (Internet Archive) i odbrojavanje
+  const ema = once(a, "video:set");
+  b.emit("video:set", { url: "<iframe src=\"https://archive.org/embed/night_of_the_living_dead\"></iframe>" });
+  const emm = await ema; assert.strictEqual(emm.type, "embed"); assert.strictEqual(emm.url, "https://archive.org/embed/night_of_the_living_dead");
+  const cda = once(a, "countdown"); b.emit("countdown", { kind: "play" });
+  assert.strictEqual((await cda).kind, "play");
   // vrati na obični fajl za ostatak testa
   const back = once(a, "video:set");
   b.emit("video:set", { url: "https://example.com/film.mp4", title: "Film" });

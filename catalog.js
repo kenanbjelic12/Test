@@ -19,8 +19,19 @@ function extractUrl(raw) {
   if (/<iframe/i.test(s)) { const m = s.match(/\bsrc\s*=\s*["']([^"']+)["']/i); return m ? m[1].replace(/&amp;/g, "&").trim() : ""; }
   return s;
 }
+/* Embedovi servisa s popisa (bez API-ja za kontrolu): ne sinhroniziraju se automatski, nego odbrojavanjem.
+   Popis je namjerno ograničen na servise s otvorenim ili licenciranim sadržajem. */
+function embedSrc(u) {
+  let m;
+  if ((m = u.match(/^https?:\/\/(?:www\.)?archive\.org\/(?:embed|details)\/([\w.\-]{3,100})/i))) return "https://archive.org/embed/" + m[1];
+  if ((m = u.match(/^https?:\/\/(?:www\.)?(?:dailymotion\.com\/(?:embed\/)?video\/|dai\.ly\/)([a-z0-9]{5,12})/i))) return "https://www.dailymotion.com/embed/video/" + m[1];
+  if ((m = u.match(/^https?:\/\/(?:www\.)?odysee\.com\/(\$\/embed\/[^\s?#"']{1,200})/i))) return "https://odysee.com/" + m[1];
+  if ((m = u.match(/^https?:\/\/(?:www\.|player\.)?twitch\.tv\/(?:\?channel=)?([\w]{2,25})(?:[&?#\/]|$)/i)) && !/^(videos|directory|embed)$/i.test(m[1])) return "https://www.twitch.tv/" + m[1].toLowerCase();
+  return "";
+}
+
 /* Prepoznaje izvor koji se može sinhronizirati: YouTube, Vimeo ili direktan video link (.mp4, .webm, .m3u8...).
-   Vraća { type: "yt"|"vimeo"|"file", id, url } ili null. */
+   Vraća { type: "yt"|"vimeo"|"embed"|"file", id, url } ili null. */
 function parseMedia(raw) {
   const u = extractUrl(raw);
   if (!u) return null;
@@ -31,7 +42,8 @@ function parseMedia(raw) {
     const h = vm[2] || (u.match(/[?&]h=([0-9a-f]{8,16})/i) || [])[1] || "";
     return { type: "vimeo", id: vm[1] + (h ? ":" + h : ""), url: "https://vimeo.com/" + vm[1] + (h ? "/" + h : "") };
   }
-  if (/^https?:\/\/(?:[\w-]+\.)*(?:dailymotion\.com|dai\.ly)\//i.test(u)) return null; // Dailymotion još nije podržan (traži vlastiti Player ID)
+  const em = embedSrc(u);
+  if (em) return { type: "embed", id: em, url: em };
   if (isHttp(u) && u.length <= 2000) return { type: "file", id: "", url: u };
   return null;
 }
@@ -69,7 +81,7 @@ function clean(input) {
   let movieUrl = String(i.movieUrl || "").trim();
   if (movieUrl) {
     const media = parseMedia(movieUrl);
-    if (!media || media.url.length > 1000) throw new ValidationError("Link na film nije prepoznat. Zalijepi YouTube, Vimeo ili direktan video link (.mp4, .webm, .m3u8), ili iframe kod tih servisa.");
+    if (!media || media.url.length > 1000) throw new ValidationError("Link na film nije prepoznat. Podržano: YouTube, Vimeo, Internet Archive, Dailymotion, Odysee, Twitch, direktan video link (.mp4, .webm, .m3u8) ili iframe kod tih servisa.");
     movieUrl = media.url;
   }
 

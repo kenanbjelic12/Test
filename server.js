@@ -311,6 +311,12 @@ io.on("connection", socket => {
     r.video = { ...vid, title, t: 0, playing: false, at: Date.now() };
     io.to(code).emit("video:set", videoNow(r));
   });
+  let lastCount = 0;
+  socket.on("countdown", d => { // "Pokreni za sve" / "Pauziraj sve" za embedove koji se ne mogu sinhronizirati
+    const r = rooms.get(code); if (!r) return;
+    const now = Date.now(); if (now - lastCount < 4000) return; lastCount = now;
+    io.to(code).emit("countdown", { kind: d && d.kind === "pause" ? "pause" : "play", by: socket.user.name });
+  });
   socket.on("video:sync", (d, ack) => { // klijent traži trenutno stanje (ručno ili automatska provjera odstupanja)
     const r = rooms.get(code); if (typeof ack !== "function") return;
     ack(r && r.video && (r.video.url || r.video.id) ? videoNow(r) : null);

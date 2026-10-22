@@ -52,7 +52,7 @@ Bez njih katalog se sprema u datoteku (`DATA_DIR`, zadano `./data`). To je u red
 
 ### Link na film
 
-Polje *Link na film* (i polje "Pusti svima" u sobi) prima: YouTube link, Vimeo link, direktan video (`.mp4`, `.webm`), HLS (`.m3u8`) ili zalijepljen **iframe kod** (`<iframe src="…">`; aplikacija sama izvuče adresu). Play, pauza i premotavanje se sinhroniziraju za sve u sobi. Ostali embed servisi bez API-ja za kontrolu ne mogu se sinhronizirati i nisu podržani.
+Polje *Link na film* (i polje "Pusti svima" u sobi) prima: YouTube link, Vimeo link, direktan video (`.mp4`, `.webm`), HLS (`.m3u8`) ili zalijepljen **iframe kod** (`<iframe src="…">`; aplikacija sama izvuče adresu). Play, pauza i premotavanje se sinhroniziraju za sve u sobi. Embedovi servisa s popisa (Internet Archive, Dailymotion, Odysee, Twitch) nemaju API za kontrolu, pa se prikazuju u sobi, a sinhroniziraju dugmadima **Pokreni za sve (3-2-1)** i **Pauziraj sve**. Ostali servisi nisu podržani.
 
 ## Dodatne postavke (opcionalno)
 

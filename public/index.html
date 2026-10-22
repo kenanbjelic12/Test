@@ -96,8 +96,9 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
 .pe.talk .av{box-shadow:0 0 0 3px rgba(47,158,68,.6)}.pe.talk .nm{font-weight:600}
 .vr{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}.vr span{width:70px;color:var(--mut)}.vr input{flex:1;padding:0}
 .films button{display:block;width:100%;text-align:left;margin-bottom:6px}
-#ytwrap,#vmwrap{width:100%;aspect-ratio:16/9;max-height:52vh;background:#000;border-radius:10px;overflow:hidden}
-#ytwrap iframe,#vmwrap iframe{width:100%;height:100%;display:block;border:0}
+#cdo{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:min(30vw,220px);font-weight:800;color:#fff;background:rgba(0,0,0,.55);z-index:90;pointer-events:none;text-shadow:0 4px 30px #000}
+#ytwrap,#vmwrap,#emwrap{width:100%;aspect-ratio:16/9;max-height:52vh;background:#000;border-radius:10px;overflow:hidden}
+#ytwrap iframe,#vmwrap iframe,#emwrap iframe{width:100%;height:100%;display:block;border:0}
 .res{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px;max-height:280px;overflow:auto}
 .it{cursor:pointer;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:var(--bg)}
 .it:hover{border-color:var(--ac)}
@@ -168,7 +169,7 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
       <label class="fld"><span>Opis</span><textarea id="af_desc" maxlength="2000"></textarea></label>
       <label class="fld"><span>YouTube trailer (link) *</span><input id="af_trailer" placeholder="https://www.youtube.com/watch?v=…"></label>
       <label class="fld"><span>Slika / poster (link, nije obavezno; inače se uzima sličica trailera)</span><input id="af_poster" placeholder="https://…/poster.jpg"></label>
-      <label class="fld"><span>Link na cijeli film (nije obavezno): YouTube, Vimeo, .mp4/.webm/.m3u8 ili zalijepljen iframe kod tih servisa. Ako ga dodate, "Pogledaj u grupi" pušta njega umjesto trailera.</span><input id="af_movie" placeholder="https://vimeo.com/… ili <iframe …> ili https://…/film.mp4"></label>
+      <label class="fld"><span>Link na cijeli film (nije obavezno): YouTube, Vimeo, Internet Archive, Dailymotion, Odysee, Twitch, .mp4/.webm/.m3u8 ili zalijepljen iframe kod. Ako ga dodate, "Pogledaj u grupi" pušta njega umjesto trailera.</span><input id="af_movie" placeholder="https://vimeo.com/… ili <iframe …> ili https://…/film.mp4"></label>
       <label class="note" style="display:block;margin-bottom:10px"><input type="checkbox" id="af_feat" style="margin-right:6px">Istaknut film (veliki baner na početnoj)</label>
       <div class="mimg" style="border-radius:8px;margin-bottom:10px" id="aprev" hidden></div>
       <div class="row" style="margin-top:0"><button id="asave">Sačuvaj</button><button id="anew" class="g">Novi / očisti</button><button id="adel" class="g" hidden style="color:#ff8a8a">Obriši film</button></div>
@@ -193,9 +194,11 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
   <main>
     <section>
       <video id="v" controls playsinline></video>
-      <div class="note" style="margin:4px 0"><button id="rsync" class="g" title="Poravnaj me s ostalima">🔄 Sinhroniziraj</button> <span id="syncst"></span></div>
+      <div class="note" style="margin:4px 0"><button id="rsync" class="g" title="Poravnaj me s ostalima">🔄 Sinhroniziraj</button> <span id="cdb" hidden><button id="cdp" class="g">▶ Pokreni za sve (3-2-1)</button> <button id="cdz" class="g">⏸ Pauziraj sve</button></span> <span id="syncst"></span></div>
       <div id="ytwrap" hidden><div id="ytp"></div></div>
       <div id="vmwrap" hidden></div>
+      <div id="emwrap" hidden></div>
+      <div id="cdo" hidden></div>
       <div class="card" style="margin-top:8px">
         <h3>Pretraga filmova</h3>
         <div class="row" style="margin-top:0">
@@ -204,7 +207,7 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
         </div>
         <label class="note" id="longl" style="display:block;margin-top:6px"><input type="checkbox" id="long" checked style="padding:0"> samo dugi videi (filmovi)</label>
         <div id="res" class="res"></div>
-        <div class="row"><input id="url" placeholder="ili zalijepite YouTube / Vimeo / .mp4 / .m3u8 link ili iframe kod"><button id="load">Pusti svima</button></div>
+        <div class="row"><input id="url" placeholder="ili zalijepite link ili iframe kod (YouTube, Vimeo, Archive, Dailymotion, Odysee, Twitch, .mp4, .m3u8)"><button id="load">Pusti svima</button></div>
         <div class="note">Kad kliknete film, pušta se svima u sobi.</div>
       </div>
       <div class="row"><label class="g" style="border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer">Lokalni fajl<input id="file" type="file" accept="video/*" hidden></label>
@@ -350,6 +353,7 @@ function connect() {
   socket.on("lobby:history", list => list.forEach(m => addMsg("l", m, true)));
   socket.on("video:set", setVideo);
   socket.on("video:state", applyRemote);
+  socket.on("countdown", showCount);
   socket.on("rtc:hi", onHi);
   socket.on("rtc", onRtc);
   socket.on("rtc:bye", d => closePc(d.from));
@@ -668,6 +672,7 @@ function curTime() {
 function curPlaying() { if (cur.type === "yt") { const st = ytState(); return st === 1 || st === 3; } if (cur.type === "vimeo") return vm.playing; return !v.paused; }
 function sendState() { if (!quiet && socket && roomCode) socket.emit("video:state", { playing: curPlaying(), t: curTime() }); }
 function applyRemote(s) {
+  if (cur.type === "embed") return;
   quiet = true;
   if (cur.type === "vimeo") {
     if (vm.player && vm.ready) {
@@ -694,8 +699,38 @@ function applyRemote(s) {
 function showFileMode() {
   cur = { type: "file", id: "" }; $("ytwrap").hidden = true; $("vmwrap").hidden = true; v.style.display = "block";
   if (yt && ytReady) { try { yt.pauseVideo(); } catch (e) {} }
-  stopVimeo();
+  stopVimeo(); stopEmbed();
 }
+/* ---- Embed bez API-ja: prikaz + odbrojavanje ---- */
+function stopEmbed() { $("emwrap").innerHTML = ""; $("emwrap").hidden = true; $("cdb").hidden = true; }
+function setEmbed(s) {
+  v.style.display = "none"; try { v.pause(); } catch (e) {}
+  $("ytwrap").hidden = true; $("vmwrap").hidden = true; stopVimeo();
+  if (yt && ytReady) { try { yt.pauseVideo(); } catch (e) {} }
+  const same = cur.type === "embed" && cur.id === s.id; cur = { type: "embed", id: s.id };
+  $("cdb").hidden = false; $("emwrap").hidden = false;
+  if (same) return;
+  let src = s.url;
+  if (/^https:\/\/www\.twitch\.tv\//.test(src)) src = "https://player.twitch.tv/?channel=" + encodeURIComponent(src.split("/").pop()) + "&parent=" + encodeURIComponent(location.hostname);
+  else src += (src.includes("?") ? "&" : "?") + (/dailymotion/.test(src) ? "autoplay=0" : "");
+  $("emwrap").innerHTML = "";
+  const f = document.createElement("iframe"); f.src = src; f.allow = "autoplay; fullscreen; picture-in-picture"; f.allowFullscreen = true; f.referrerPolicy = "origin";
+  $("emwrap").appendChild(f);
+  note("Ovaj izvor se ne može automatski sinhronizirati: koristite „Pokreni za sve“ pa svi pritisnu play.");
+}
+let cdTimer = null;
+function beep(freq, dur) { try { const ac = new (window.AudioContext || window.webkitAudioContext)(), o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = freq; g.gain.value = 0.15; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + dur); setTimeout(() => ac.close(), dur * 1000 + 200); } catch (e) {} }
+function showCount(d) {
+  const el = $("cdo"); clearInterval(cdTimer); el.hidden = false;
+  if (d.kind === "pause") { el.textContent = "⏸ " + d.by + ": pauza"; beep(440, 0.3); cdTimer = setTimeout(() => { el.hidden = true; }, 2500); return; }
+  let n = 3; el.textContent = n; beep(660, 0.12);
+  cdTimer = setInterval(() => {
+    n--; if (n > 0) { el.textContent = n; beep(660, 0.12); }
+    else { clearInterval(cdTimer); el.textContent = "▶ PLAY!"; beep(990, 0.4); cdTimer = setTimeout(() => { el.hidden = true; }, 1500); }
+  }, 1000);
+}
+$("cdp").onclick = () => socket && socket.emit("countdown", { kind: "play" });
+$("cdz").onclick = () => socket && socket.emit("countdown", { kind: "pause" });
 /* ---- Vimeo (Player API: play, pause, seek, vrijeme) ---- */
 const vm = { player: null, ready: false, id: "", t: 0, at: 0, playing: false };
 function stopVimeo() { if (vm.player) { try { vm.player.destroy(); } catch (e) {} } vm.player = null; vm.ready = false; vm.id = ""; vm.playing = false; $("vmwrap").innerHTML = ""; }
@@ -731,6 +766,8 @@ function setVimeo(s) {
 function setVideo(s) {
   if (!s || (!s.url && !s.id)) return;
   note("Gledate: " + (s.title || s.url));
+  if (s.type === "embed") { $("url").value = s.url || ""; return setEmbed(s); }
+  stopEmbed();
   if (s.type === "vimeo") { $("url").value = s.url || ""; return setVimeo(s); }
   if (s.type === "yt") {
     stopVimeo(); $("vmwrap").hidden = true;
@@ -782,7 +819,7 @@ function resync(manual) {
   if (!socket || !roomCode || quiet) return;
   socket.emit("video:sync", {}, s => {
     if (!s) { if (manual) $("syncst").textContent = "Nema videa u sobi."; return; }
-    const same = (s.type === "yt" || s.type === "vimeo") ? cur.type === s.type && cur.id === s.id : cur.type === "file" && v.dataset.u === s.url;
+    const same = (s.type === "yt" || s.type === "vimeo" || s.type === "embed") ? cur.type === s.type && cur.id === s.id : cur.type === "file" && v.dataset.u === s.url;
     if (!same) setVideo(s); else if (manual || Math.abs(curTime() - s.t) > 2.5 || (s.playing !== curPlaying())) applyRemote(s);
     if (manual) { $("syncst").textContent = "Poravnato ✓"; setTimeout(() => { $("syncst").textContent = ""; }, 2000); }
   });
