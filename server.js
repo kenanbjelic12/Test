@@ -5,6 +5,8 @@ const crypto = require("crypto");
 const path = require("path");
 const { Server } = require("socket.io");
 const { OAuth2Client } = require("google-auth-library");
+const catalog = require("./catalog");
+const store = require("./store");
 
 const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
@@ -13,6 +15,9 @@ const DEV = process.env.DEV_LOGIN === "1";
 const ALLOWED = (process.env.ALLOWED_EMAILS || "")
   .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const SESSION_MS = 30 * 24 * 3600 * 1000;
+const ADMINS = new Set((process.env.ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean));
+if (DEV) ADMINS.add("dev-admin@local"); // u razvojnom načinu je admin svako ime koje počinje sa "admin"
+const isAdminEmail = e => !!e && ADMINS.has(String(e).toLowerCase());
 const MAX_MEMBERS = 12;
 const YT_KEY = process.env.YOUTUBE_API_KEY || "";
 
@@ -98,6 +103,61 @@ app.get("/search", async (req, res) => {
   }
 });
 
+/* ---------- katalog filmova ---------- */
+const userFrom = p => ({ id: p.id, name: p.name, picture: p.picture || "", admin: isAdminEmail(p.email) });
+function needUser(req, res, next) {
+  const p = verify(String(req.headers.authorization || "").replace(/^Bearer /, ""));
+  if (!p) return res.status(401).json({ error: "Niste prijavljeni." });
+  req.user = userFrom(p);
+  next();
+}
+function needAdmin(req, res, next) {
+  if (!req.user.admin) return res.status(403).json({ error: "Samo administrator može mijenjati filmove." });
+  next();
+}
+let films = [], loaded = false, loading = null;
+// Katalog se učitava iz pohrane. Ako pohrana nije dostupna, popis ostaje neučitan (ne prepisujemo ga primjerima)
+// i učitavanje se pokušava ponovo pri sljedećem zahtjevu.
+function ensureLoaded() {
+  if (loaded) return Promise.resolve();
+  if (!loading) {
+    loading = (async () => {
+      const saved = await store.load();
+      if (saved === null) { films = catalog.seed(); await store.save(films); } else films = saved;
+      loaded = true;
+      console.log("Katalog: " + films.length + " filmova (pohrana: " + store.kind + ")");
+    })().finally(() => { loading = null; });
+  }
+  return loading;
+}
+const ready = ensureLoaded().catch(e => console.error("Katalog se nije mogao učitati: " + e.message + " (pokušat ću ponovo)"));
+let lock = Promise.resolve();
+function mutate(fn) { // izmjene idu jedna po jedna; popis se mijenja tek kad je spremanje uspjelo
+  const run = lock.then(async () => { await ready; await ensureLoaded(); const res = fn(films); await store.save(res.list); films = res.list; return res.film; });
+  lock = run.catch(() => {});
+  return run;
+}
+function fail(res, e) {
+  if (e instanceof catalog.ValidationError) return res.status(400).json({ error: e.message });
+  if (e instanceof catalog.NotFoundError) return res.status(404).json({ error: e.message });
+  console.error(e);
+  res.status(500).json({ error: "Spremanje nije uspjelo, pokušajte ponovo." });
+}
+app.get("/api/me", needUser, (req, res) => res.json(req.user));
+app.get("/api/films", needUser, async (req, res) => {
+  try { await ready; await ensureLoaded(); } catch (e) { return res.status(503).json({ error: "Pohrana filmova trenutno nije dostupna, pokušajte za koji trenutak." }); }
+  res.json({ films, storage: store.kind });
+});
+app.post("/api/films", needUser, needAdmin, async (req, res) => {
+  try { const film = await mutate(l => catalog.create(l, req.body)); io.emit("films:changed"); res.json({ film }); } catch (e) { fail(res, e); }
+});
+app.put("/api/films/:id", needUser, needAdmin, async (req, res) => {
+  try { const film = await mutate(l => catalog.update(l, String(req.params.id), req.body)); io.emit("films:changed"); res.json({ film }); } catch (e) { fail(res, e); }
+});
+app.delete("/api/films/:id", needUser, needAdmin, async (req, res) => {
+  try { const film = await mutate(l => catalog.remove(l, String(req.params.id))); io.emit("films:changed"); res.json({ film }); } catch (e) { fail(res, e); }
+});
+
 const oauth = new OAuth2Client(CLIENT_ID || undefined);
 app.post("/auth/google", async (req, res) => {
   try {
@@ -119,7 +179,7 @@ if (DEV) {
   app.post("/auth/dev", (req, res) => {
     const name = String((req.body && req.body.name) || "").trim().slice(0, 40);
     if (!name) return res.status(400).json({ error: "Upišite ime." });
-    res.json(issue({ id: "dev-" + crypto.createHash("sha1").update(name).digest("hex").slice(0, 10), name, picture: "", email: "" }));
+    res.json(issue({ id: "dev-" + crypto.createHash("sha1").update(name).digest("hex").slice(0, 10), name, picture: "", email: /^admin/i.test(name) ? "dev-admin@local" : "dev@local" }));
   });
 }
 
@@ -150,14 +210,17 @@ function videoNow(r) {
 io.use((socket, next) => {
   const p = verify(socket.handshake.auth && socket.handshake.auth.token);
   if (!p) return next(new Error("unauthorized"));
-  socket.user = { id: p.id, name: p.name, picture: p.picture || "" };
+  socket.user = userFrom(p);
   next();
 });
 
+const lobbyChat = []; // opšti chat, vide ga svi prijavljeni
 io.on("connection", socket => {
   let code = "";
   let lastChat = 0;
   socket.emit("hello", socket.user);
+  socket.join("lobby");
+  socket.emit("lobby:history", lobbyChat);
 
   function leave() {
     if (!code) return;
@@ -178,14 +241,27 @@ io.on("connection", socket => {
     r.emptySince = 0;
     r.members.set(socket.id, { ...socket.user, mic: false });
     socket.join(code);
-    ack({ code, me: { ...socket.user, sid: socket.id }, members: memberList(r), chat: r.chat, video: videoNow(r) });
+    ack({ code, me: { ...socket.user, sid: socket.id }, members: memberList(r), chat: r.chat, video: videoNow(r), film: r.film || null });
     socket.to(code).emit("members", memberList(r));
   }
 
-  socket.on("create", (_, ack) => {
+  socket.on("create", async (d, ack) => {
     if (typeof ack !== "function") return;
+    // soba može nastati iz filma: tada se odmah pušta trailer (ili cijeli film, ako ga je admin dodao)
+    let film = null;
+    if (d && d.filmId) {
+      try { await ready; await ensureLoaded(); } catch (e) { return ack({ error: "Katalog trenutno nije dostupan, pokušajte ponovo." }); }
+      film = films.find(f => f.id === String(d.filmId));
+      if (!film) return ack({ error: "Taj film više ne postoji." });
+    }
     const c = newCode();
-    const r = { code: c, members: new Map(), chat: [], video: { url: "", title: "", t: 0, playing: false, at: 0 }, emptySince: Date.now() };
+    const r = { code: c, members: new Map(), chat: [], film: film ? { id: film.id, title: film.title } : null,
+      video: { url: "", title: "", t: 0, playing: false, at: 0 }, emptySince: Date.now() };
+    if (film) {
+      const g = catalog.groupVideo(film);
+      r.video = { ...(g.type === "yt" ? { type: "yt", id: g.id, url: "https://www.youtube.com/watch?v=" + g.id } : { type: "file", id: "", url: g.url }),
+        title: g.title, t: 0, playing: false, at: Date.now() };
+    }
     rooms.set(c, r);
     enter(r, ack);
   });
@@ -207,6 +283,16 @@ io.on("connection", socket => {
     r.chat.push(msg);
     if (r.chat.length > 200) r.chat.shift();
     io.to(code).emit("chat", msg);
+  });
+  socket.on("lobby:chat", d => {
+    const text = String((d && d.text) || "").trim().slice(0, 300);
+    const now = Date.now();
+    if (!text || now - lastChat < 200) return;
+    lastChat = now;
+    const msg = { id: now + "-" + socket.id, uid: socket.user.id, name: socket.user.name, picture: socket.user.picture, text, ts: now };
+    lobbyChat.push(msg);
+    if (lobbyChat.length > 100) lobbyChat.shift();
+    io.to("lobby").emit("lobby:chat", msg);
   });
 
   socket.on("video:set", d => {

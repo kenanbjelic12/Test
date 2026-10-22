@@ -3,35 +3,92 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Zajedno – grupno gledanje</title>
+<title>Zajedno – filmovi u društvu</title>
 <style>
-:root{--bg:#f4f1ee;--sf:#fff;--tx:#1d1a17;--mut:#6f6760;--ac:#d9480f;--bd:#ddd5cc;--me:#fde8dc;--ok:#2f9e44;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#14110f;--sf:#1f1b18;--tx:#f1ece7;--mut:#a39a91;--ac:#ff7a3d;--bd:#342f2a;--me:#3a2418;color-scheme:dark}}
+:root{--bg:#0e0e10;--sf:#18181b;--sf2:#222226;--tx:#f4f4f5;--mut:#a1a1aa;--ac:#e50914;--bd:#2c2c31;--me:#4a1217;--ok:#2f9e44;--chatpad:56px;color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
-button,input{font:inherit;color:inherit}
-button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
-button.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+body{background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:var(--ac);color:#fff;border:0;border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:600}
+button:hover{filter:brightness(1.12)}
+button.g{background:rgba(255,255,255,.08);border:1px solid var(--bd);font-weight:500}
+button.w{background:#fff;color:#111}
 button.on{background:var(--ok)}
 button:disabled{opacity:.5;cursor:default}
-input{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;min-width:0}
+input,textarea,select{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:8px 10px;min-width:0}
+textarea{width:100%;resize:vertical;min-height:90px}
 .card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px}
 .note{color:var(--mut);font-size:12px}
 h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
-header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);flex-wrap:wrap}
-header b{font-size:18px}header b span{color:var(--ac)}
 .sp{flex:1}
 .av{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--bd);flex:none}
-#err{display:none;padding:8px 16px;background:#fde8dc;color:#8a2c00;font-size:13px}
+#err{display:none;padding:8px 16px;background:#5a1a12;color:#ffd9d2;font-size:13px}
 .center{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
 .center .card{max-width:360px;width:100%;padding:24px;text-align:center}
 .center input{width:100%;margin:8px 0}
-.center h2{margin:0 0 6px}
 .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.row input{flex:1;min-width:140px}
+.scroll{flex:1;min-height:0;overflow:auto;padding-bottom:var(--chatpad)}
+
+/* gornja traka (katalog i admin) */
+#top{display:flex;align-items:center;gap:10px;padding:10px 20px;background:linear-gradient(#000d,#0000);position:relative;z-index:5;flex-wrap:wrap}
+.logo{font-size:22px;font-weight:800;color:var(--ac);letter-spacing:.5px}
+.nav button{background:none;border:0;color:var(--mut);padding:6px 8px;font-weight:600}.nav button.act{color:#fff}
+#top input{padding:6px 10px}
+#fq{width:200px}#jc{width:120px;text-transform:uppercase;text-align:center}
+
+/* hero i redovi */
+.hero{position:relative;min-height:48vh;display:flex;align-items:flex-end;padding:40px 24px;overflow:hidden;background:#000;margin-top:-56px}
+.hero img.himg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(14,14,16,.96) 8%,rgba(14,14,16,.2) 65%),linear-gradient(0deg,var(--bg),transparent 45%)}
+.hero .hc{position:relative;z-index:1;max-width:560px}
+.hero h1{margin:0 0 8px;font-size:clamp(26px,4vw,44px);line-height:1.1}
+.hero p{margin:0 0 16px;color:#d4d4d8;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.hero .row{margin-top:0}
+.rs{padding:0 20px;margin:18px 0}
+.rs h3{margin:0 0 8px;font-size:18px;color:#fff;text-transform:none;letter-spacing:0}
+.strip{display:flex;gap:10px;overflow-x:auto;padding:6px 2px 10px;scroll-snap-type:x proximity}
+.fc{flex:0 0 220px;scroll-snap-align:start;cursor:pointer;transition:transform .15s;outline:none}
+.fc:hover,.fc:focus-visible{transform:scale(1.05)}
+.fc .th{position:relative;aspect-ratio:16/9;border-radius:6px;overflow:hidden;background:linear-gradient(135deg,#3a1015,#1b1b22);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:800;color:#ffffff40}
+.fc .th img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fc:focus-visible .th{outline:2px solid #fff}
+.fc .ft{margin-top:6px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc .fm{color:var(--mut);font-size:12px}
+.emptybox{padding:60px 20px;text-align:center;color:var(--mut)}
+
+/* prozori */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto}
+#tm{z-index:40}
+.mbox{position:relative;background:var(--sf);border-radius:10px;max-width:760px;width:100%;overflow:hidden;box-shadow:0 20px 60px #000a}
+.x{position:absolute;top:10px;right:10px;z-index:2;background:rgba(0,0,0,.65);border-radius:50%;width:34px;height:34px;padding:0;font-size:16px}
+.mimg{position:relative;aspect-ratio:16/9;background:#000;overflow:hidden}
+.mimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mimg::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,var(--sf),transparent 55%)}
+.mbody{padding:6px 22px 22px}
+.mbody h2{margin:0 0 4px;font-size:26px}
+.mbody p{color:#d4d4d8;white-space:pre-line}
+.tw{aspect-ratio:16/9;background:#000}.tw iframe{width:100%;height:100%;border:0;display:block}
+
+/* admin */
+.ag{display:grid;grid-template-columns:minmax(300px,390px) 1fr;gap:16px;padding:16px 20px}
+@media(max-width:820px){.ag{grid-template-columns:1fr}}
+.fld{display:block;margin-bottom:10px}.fld>span{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}.fld input{width:100%}
+.ar{display:flex;gap:10px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--bd)}
+.ar img,.ar .ph{width:96px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;background:#000;flex:none}
+.ar .tt{flex:1;min-width:0}.ar .tt b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ar button{padding:6px 10px}
+.warn{background:#4a3410;color:#ffe2a8;border-radius:8px;padding:8px 12px;font-size:13px;margin:0 20px}
+.okb{background:#123a1d;color:#b8f0c8}
+#amsg{min-height:18px;font-size:13px;margin-top:6px}
+
+/* soba */
 #room{flex:1;min-height:0;display:flex;flex-direction:column}
-main{flex:1;min-height:0;overflow:auto;padding:12px 16px;display:grid;grid-template-columns:1fr 230px;gap:12px;align-content:start}
+#room>header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);flex-wrap:wrap}
+#room>header b.logo{font-size:18px}
+.hint{background:#123a1d;color:#b8f0c8;padding:8px 16px;font-size:13px}
+main{flex:1;min-height:0;overflow:auto;padding:12px 16px var(--chatpad);display:grid;grid-template-columns:1fr 230px;gap:12px;align-content:start}
 @media(max-width:720px){main{grid-template-columns:1fr}}
 video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:block}
 .pe{display:flex;align-items:center;gap:8px;padding:4px 0}
@@ -41,17 +98,29 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
 .films button{display:block;width:100%;text-align:left;margin-bottom:6px}
 #ytwrap{width:100%;aspect-ratio:16/9;max-height:52vh;background:#000;border-radius:10px;overflow:hidden}
 #ytwrap iframe{width:100%;height:100%;display:block}
-select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:inherit;font:inherit}
 .res{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px;max-height:280px;overflow:auto}
 .it{cursor:pointer;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:var(--bg)}
 .it:hover{border-color:var(--ac)}
 .it img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--bd)}
 .it div{padding:4px 6px;font-size:12px;overflow-wrap:anywhere}.it small{display:block;color:var(--mut)}
-#dock{border-top:2px solid var(--ac);background:var(--sf);height:34vh;min-height:180px;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0)}
-#msgs{flex:1;overflow:auto;padding:8px 16px}
-.m{margin:4px 0;max-width:80%;padding:6px 10px;border-radius:10px;border:1px solid var(--bd);width:fit-content;overflow-wrap:anywhere}
+
+/* chat u uglu */
+#chat{position:fixed;right:16px;bottom:0;width:340px;max-width:calc(100vw - 16px);height:min(420px,62vh);background:var(--sf);border:1px solid var(--bd);border-bottom:0;border-radius:12px 12px 0 0;z-index:20;display:flex;flex-direction:column;box-shadow:0 -4px 24px #0009}
+#chat.big{width:min(560px,calc(100vw - 16px));height:min(72vh,720px)}
+#chat.min{height:auto}
+#chat.min #cbody{display:none}
+#chead{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--bd);cursor:pointer;flex:none}
+#chat.min #chead{border-bottom:0}
+.tb{background:none;border:0;color:var(--mut);padding:5px 8px;border-radius:6px;font-weight:600;font-size:13px}
+.tb.act{color:#fff;background:rgba(255,255,255,.1)}
+.ib{background:none;border:0;padding:4px 8px;color:var(--mut);font-size:16px}
+.bad{background:var(--ac);color:#fff;border-radius:10px;padding:0 7px;font-size:12px;font-weight:700}
+#cbody{display:flex;flex-direction:column;flex:1;min-height:0}
+.cm{flex:1;overflow:auto;padding:8px 12px}
+.m{margin:4px 0;max-width:85%;padding:6px 10px;border-radius:10px;border:1px solid var(--bd);width:fit-content;overflow-wrap:anywhere}
 .m.me{background:var(--me);margin-left:auto}.m small{color:var(--mut);display:block}
-#cf{display:flex;gap:8px;padding:8px 16px;border-top:1px solid var(--bd)}#cf input{flex:1}
+#cf{display:flex;gap:6px;padding:8px;border-top:1px solid var(--bd)}#cf input{flex:1}
+@media(max-width:720px){#chat{right:0;left:0;width:auto;max-width:none}#chat.big{width:auto;height:80vh}}
 </style>
 </head>
 <body>
@@ -59,36 +128,68 @@ select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding
 
 <section id="login" class="center" hidden>
   <div class="card">
-    <h2>Zajedno<span style="color:var(--ac)">.</span></h2>
+    <h2 style="margin:0 0 6px"><span class="logo">Zajedno.</span></h2>
     <p class="note" style="margin:0 0 16px">Gledajte filmove s drugima, uz chat i razgovor. Prijavite se Google nalogom.</p>
     <div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div>
     <div id="gnote" class="note"></div>
     <div id="dev" hidden style="margin-top:16px;border-top:1px dashed var(--bd);padding-top:12px">
-      <div class="note">Razvojni način (bez Googlea)</div>
+      <div class="note">Razvojni način (bez Googlea). Ime koje počinje sa "admin" daje admin pristup.</div>
       <input id="devname" placeholder="Ime" maxlength="40"><button id="devgo" style="width:100%">Uđi</button>
     </div>
   </div>
 </section>
 
-<section id="home" hidden style="flex:1;display:flex;flex-direction:column">
-  <header><b>Zajedno<span>.</span></b><div class="sp"></div><img id="avatar" class="av" alt="" referrerpolicy="no-referrer"><span id="who"></span><button id="out" class="g">Odjava</button></header>
-  <div class="center"><div class="card">
-    <h3>Nova soba</h3>
-    <button id="mk" style="width:100%">Napravi sobu</button>
-    <div class="note" style="margin:16px 0 4px">ili uđite u postojeću</div>
-    <input id="jc" placeholder="Kod sobe, npr. K7M2QX" maxlength="12" style="text-transform:uppercase;text-align:center">
-    <button id="jn" class="g" style="width:100%">Uđi u sobu</button>
-  </div></div>
+<header id="top" hidden>
+  <span class="logo">Zajedno.</span>
+  <span class="nav"><button id="nv-films" class="act">Filmovi</button><button id="nv-admin" hidden>Admin panel</button></span>
+  <div class="sp"></div>
+  <input id="fq" type="search" placeholder="Pretraži filmove…">
+  <button id="mk" class="g">＋ Nova soba</button>
+  <input id="jc" placeholder="KOD" maxlength="12"><button id="jn" class="g">Uđi</button>
+  <img id="avatar" class="av" alt="" referrerpolicy="no-referrer"><span id="who"></span><button id="out" class="g">Odjava</button>
+</header>
+
+<section id="home" class="scroll" hidden>
+  <div id="hero"></div>
+  <div id="rows"></div>
+  <div id="empty" class="emptybox" hidden></div>
+</section>
+
+<section id="admin" class="scroll" hidden>
+  <div id="astore" class="warn" hidden style="margin-top:12px"></div>
+  <div class="ag">
+    <div class="card" style="align-self:start">
+      <h3 id="aft">Novi film</h3>
+      <label class="fld"><span>Naslov *</span><input id="af_title" maxlength="100"></label>
+      <div class="row" style="margin-top:0">
+        <label class="fld" style="flex:1"><span>Godina</span><input id="af_year" inputmode="numeric" maxlength="4"></label>
+        <label class="fld" style="flex:2"><span>Žanrovi (odvojeni zarezom)</span><input id="af_genres" placeholder="Akcija, Drama"></label>
+      </div>
+      <label class="fld"><span>Opis</span><textarea id="af_desc" maxlength="2000"></textarea></label>
+      <label class="fld"><span>YouTube trailer (link) *</span><input id="af_trailer" placeholder="https://www.youtube.com/watch?v=…"></label>
+      <label class="fld"><span>Slika / poster (link, nije obavezno; inače se uzima sličica trailera)</span><input id="af_poster" placeholder="https://…/poster.jpg"></label>
+      <label class="fld"><span>Link na cijeli film (nije obavezno; .mp4 ili YouTube). Ako ga dodate, "Pogledaj u grupi" pušta njega umjesto trailera.</span><input id="af_movie" placeholder="https://…/film.mp4"></label>
+      <label class="note" style="display:block;margin-bottom:10px"><input type="checkbox" id="af_feat" style="margin-right:6px">Istaknut film (veliki baner na početnoj)</label>
+      <div class="mimg" style="border-radius:8px;margin-bottom:10px" id="aprev" hidden></div>
+      <div class="row" style="margin-top:0"><button id="asave">Sačuvaj</button><button id="anew" class="g">Novi / očisti</button><button id="adel" class="g" hidden style="color:#ff8a8a">Obriši film</button></div>
+      <div id="amsg"></div>
+    </div>
+    <div class="card">
+      <h3>Objavljeni filmovi (<span id="acount">0</span>)</h3>
+      <div id="alist"></div>
+    </div>
+  </div>
 </section>
 
 <section id="room" hidden>
   <header>
-    <b>Zajedno<span>.</span></b><span class="note">Soba <b id="code"></b></span><div class="sp"></div>
+    <b class="logo">Zajedno.</b><span class="note">Soba <b id="code"></b> <span id="rfilm"></span></span><div class="sp"></div>
     <button id="inv" class="g">🔗 Pozovi</button>
     <button id="mute" class="g" hidden>🎙️ Mikrofon uključen</button>
     <button id="mic" class="g">📞 Pridruži se pozivu</button>
     <button id="lv" class="g">Izađi</button>
   </header>
+  <div id="hint" class="hint" hidden>Soba je spremna. Klikni <b>🔗 Pozovi</b> i pošalji link prijateljima da se pridruže.</div>
   <main>
     <section>
       <video id="v" controls playsinline></video>
@@ -121,11 +222,40 @@ select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding
       </div>
     </aside>
   </main>
-  <div id="dock"><div id="msgs"></div>
-    <div id="cf"><input id="ci" placeholder="Napišite poruku…" maxlength="300" autocomplete="off"><button id="cs">Pošalji</button></div></div>
   <div id="audios" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none"></div>
-  <button id="snd" hidden style="position:fixed;left:50%;transform:translateX(-50%);bottom:40vh;z-index:5;padding:12px 18px;box-shadow:0 4px 16px rgba(0,0,0,.3)">🔊 Klikni da uključiš zvuk</button>
+  <button id="snd" hidden style="position:fixed;left:50%;transform:translateX(-50%);bottom:40vh;z-index:25;padding:12px 18px;box-shadow:0 4px 16px rgba(0,0,0,.3)">🔊 Klikni da uključiš zvuk</button>
 </section>
+
+<!-- detalji filma -->
+<div id="dm" class="modal" hidden><div class="mbox">
+  <button id="dx" class="x" title="Zatvori">✕</button>
+  <div class="mimg" id="dimg"></div>
+  <div class="mbody">
+    <h2 id="dt"></h2><div id="dmeta" class="note" style="margin-bottom:10px"></div>
+    <p id="dd"></p>
+    <div class="row"><button id="dtr" class="w">▶ Pogledaj trailer</button><button id="dgr">👥 Pogledaj u grupi</button><button id="ded" class="g" hidden>✏️ Uredi</button></div>
+    <div class="note" id="dnote" style="margin-top:8px"></div>
+  </div>
+</div></div>
+
+<!-- trailer -->
+<div id="tm" class="modal" hidden><div class="mbox">
+  <button id="tx" class="x" title="Zatvori">✕</button>
+  <div class="tw"><iframe id="tf" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+</div></div>
+
+<!-- chat u uglu: stalno prisutan -->
+<div id="chat" class="min" hidden>
+  <div id="chead">
+    <button id="tabr" class="tb" hidden>Soba</button><button id="tabl" class="tb act">Opšti chat</button>
+    <span id="cbad" class="bad" hidden>0</span><div class="sp"></div>
+    <button id="cbig" class="ib" title="Povećaj">⤢</button><button id="cmin" class="ib" title="Smanji / otvori">▁</button>
+  </div>
+  <div id="cbody">
+    <div id="cm-r" class="cm" hidden></div><div id="cm-l" class="cm"></div>
+    <div id="cf"><input id="ci" placeholder="Napišite poruku…" maxlength="300" autocomplete="off"><button id="cs">Pošalji</button></div>
+  </div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -134,9 +264,18 @@ const $ = id => document.getElementById(id);
 let cfg = null, socket = null, me = null, roomCode = "", members = [];
 let token = ""; try { token = localStorage.getItem("zj_token") || ""; } catch (e) {}
 let localStream = null, quiet = false, voiceVol = 1, ctx = null;
-const pcs = {}, an = {}, rtcQ = {}, seen = new Set();
+const pcs = {}, an = {}, rtcQ = {};
+let films = [], storage = "", isAdmin = false, curFilm = null, editId = "", view = "login";
 
-function show(id) { ["login", "home", "room"].forEach(x => { $(x).hidden = x !== id; }); }
+function show(id) {
+  view = id;
+  ["login", "home", "admin", "room"].forEach(x => { $(x).hidden = x !== id; });
+  $("top").hidden = !(id === "home" || id === "admin");
+  $("chat").hidden = id === "login";
+  $("fq").hidden = id !== "home";
+  $("nv-films").className = id === "home" ? "act" : ""; $("nv-admin").className = id === "admin" ? "act" : "";
+  padChat();
+}
 function err(t) { const e = $("err"); e.textContent = t || ""; e.style.display = t ? "block" : "none"; }
 function note(t) { $("st").textContent = t || ""; }
 
@@ -170,23 +309,43 @@ $("devgo").onclick = async () => { try { gotToken(await postJson("/auth/dev", { 
 function gotToken(j) { err(""); token = j.token; try { localStorage.setItem("zj_token", token); } catch (e) {} connect(); }
 function logout() {
   token = ""; try { localStorage.removeItem("zj_token"); } catch (e) {}
-  leaveCall(); if (socket) socket.disconnect(); socket = null; roomCode = ""; show("login");
+  leaveCall(); if (socket) socket.disconnect(); socket = null; roomCode = "";
+  films = []; isAdmin = false; resetChat("r"); resetChat("l"); $("tabr").hidden = true; setTab("l"); show("login");
 }
 $("out").onclick = logout;
+
+/* ---------- pomoćno: pozivi API-ja ---------- */
+async function api(method, url, body) {
+  const r = await fetch(url, {
+    method,
+    headers: Object.assign({ Authorization: "Bearer " + token }, body ? { "content-type": "application/json" } : {}),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (r.status === 401) { logout(); err("Prijava je istekla, prijavite se ponovo."); }
+    throw new Error(j.error || "Greška");
+  }
+  return j;
+}
 
 /* ---------- veza i sobe ---------- */
 function connect() {
   if (socket) socket.disconnect();
   socket = io({ auth: { token } });
   socket.on("connect_error", e => { if (e.message === "unauthorized") { logout(); err("Prijava je istekla, prijavite se ponovo."); } else err("Veza sa serverom: " + e.message); });
-  socket.on("hello", u => {
-    err(""); me = u; $("who").textContent = u.name;
-    if (u.picture) $("avatar").src = u.picture; else $("avatar").hidden = true;
+  socket.on("hello", async u => {
+    err(""); me = u; isAdmin = !!u.admin; $("who").textContent = u.name; $("nv-admin").hidden = !isAdmin;
+    if (u.picture) { $("avatar").src = u.picture; $("avatar").hidden = false; } else $("avatar").hidden = true;
+    try { await loadFilms(); } catch (e) { err(e.message); }
     const q = new URLSearchParams(location.search).get("room");
-    if (roomCode) join(roomCode); else if (q) join(q); else show("home");
+    if (roomCode) join(roomCode); else if (q) join(q); else showHome();
   });
-  socket.on("members", list => { members = list; renderPeers(); Object.keys(pcs).forEach(s => { if (!list.some(m => m.sid === s)) closePc(s); }); });
-  socket.on("chat", addMsg);
+  socket.on("films:changed", () => { loadFilms().catch(() => {}); });
+  socket.on("members", list => { members = list; renderPeers(); if (list.length > 1) $("hint").hidden = true; Object.keys(pcs).forEach(s => { if (!list.some(m => m.sid === s)) closePc(s); }); });
+  socket.on("chat", m => addMsg("r", m));
+  socket.on("lobby:chat", m => addMsg("l", m));
+  socket.on("lobby:history", list => list.forEach(m => addMsg("l", m, true)));
   socket.on("video:set", setVideo);
   socket.on("video:state", applyRemote);
   socket.on("rtc:hi", onHi);
@@ -196,24 +355,34 @@ function connect() {
     if (localStream) { leaveCall(); err("Veza sa serverom je prekinuta, pa je mikrofon isključen. Kad se veza vrati, ponovo se pridružite pozivu."); }
   });
 }
+function showHome() { show("home"); renderCatalog(); }
 function join(code) {
   leaveCall();
   socket.emit("join", { code }, res => {
-    if (res.error) { err(res.error); roomCode = ""; history.replaceState(null, "", location.pathname); show("home"); return; }
+    if (res.error) { err(res.error); roomCode = ""; history.replaceState(null, "", location.pathname); showHome(); return; }
     err(""); enter(res);
   });
 }
 function enter(s) {
   roomCode = s.code; me = s.me; members = s.members;
   history.replaceState(null, "", "?room=" + s.code);
-  $("code").textContent = s.code; show("room");
-  $("msgs").innerHTML = ""; seen.clear(); s.chat.forEach(addMsg);
+  $("code").textContent = s.code; $("rfilm").textContent = s.film ? "· " + s.film.title : "";
+  show("room");
+  resetChat("r"); (s.chat || []).forEach(m => addMsg("r", m, true));
+  $("tabr").hidden = false; setTab("r"); if (cstate === "min") setCState("open");
+  $("hint").hidden = s.members.length > 1;
   renderPeers(); if (s.video && (s.video.url || s.video.id)) setVideo(s.video);
+}
+function exitRoom() {
+  leaveCall(); socket.emit("leave"); roomCode = ""; members = [];
+  history.replaceState(null, "", location.pathname);
+  try { v.pause(); } catch (e) {} if (yt && ytReady) { try { yt.pauseVideo(); } catch (e) {} }
+  resetChat("r"); $("tabr").hidden = true; setTab("l"); showHome();
 }
 $("mk").onclick = () => { leaveCall(); socket.emit("create", {}, res => { if (res.error) err(res.error); else { err(""); enter(res); } }); };
 $("jn").onclick = () => { const c = $("jc").value.trim(); if (c) join(c); };
 $("jc").onkeydown = e => { if (e.key === "Enter") $("jn").onclick(); };
-$("lv").onclick = () => { leaveCall(); socket.emit("leave"); roomCode = ""; members = []; history.replaceState(null, "", location.pathname); show("home"); };
+$("lv").onclick = exitRoom;
 $("inv").onclick = async () => {
   const link = location.origin + "/?room=" + roomCode;
   const text = "Pridruži mi se u gledanju filma: " + link;
@@ -221,6 +390,193 @@ $("inv").onclick = async () => {
   try { await navigator.clipboard.writeText(link); $("inv").textContent = "Link kopiran ✓"; setTimeout(() => $("inv").textContent = "🔗 Pozovi", 2000); }
   catch (e) { prompt("Kopirajte link:", link); }
 };
+
+/* ---------- katalog ---------- */
+async function loadFilms() {
+  const j = await api("GET", "/api/films");
+  films = j.films || []; storage = j.storage || "";
+  if (view === "home") renderCatalog();
+  if (view === "admin") renderAdminList();
+  if (curFilm && !$("dm").hidden) { const f = films.find(x => x.id === curFilm.id); if (f) openDetail(f); else closeDetail(); }
+}
+function parseYTc(u) {
+  const s = String(u || "").trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
+  return m ? m[1] : "";
+}
+function imgUrls(f, big) {
+  const a = [];
+  if (f.poster) a.push(f.poster);
+  if (f.trailerId) { if (big) a.push("https://i.ytimg.com/vi/" + f.trailerId + "/maxresdefault.jpg"); a.push("https://i.ytimg.com/vi/" + f.trailerId + "/hqdefault.jpg"); }
+  return a;
+}
+function mkImg(urls, cls, eager) {
+  const img = document.createElement("img"); if (cls) img.className = cls;
+  img.alt = ""; img.referrerPolicy = "no-referrer"; if (!eager) img.loading = "lazy";
+  let k = 0; const next = () => { if (k < urls.length) img.src = urls[k++]; else img.remove(); };
+  img.onerror = next; next(); return img;
+}
+function matches(f, q) { return !q || (f.title + " " + f.genres.join(" ") + " " + f.description).toLowerCase().includes(q.toLowerCase()); }
+function card(f) {
+  const d = document.createElement("div"); d.className = "fc"; d.tabIndex = 0;
+  const th = document.createElement("div"); th.className = "th"; th.textContent = (f.title || "?").trim().charAt(0).toUpperCase();
+  th.appendChild(mkImg(imgUrls(f, false)));
+  const t = document.createElement("div"); t.className = "ft"; t.textContent = f.title;
+  const m = document.createElement("div"); m.className = "fm"; m.textContent = [f.year, f.genres[0]].filter(Boolean).join(" · ");
+  d.append(th, t, m); d.onclick = () => openDetail(f); d.onkeydown = e => { if (e.key === "Enter") openDetail(f); };
+  return d;
+}
+function strip(title, list) {
+  const s = document.createElement("div"); s.className = "rs";
+  const h = document.createElement("h3"); h.textContent = title;
+  const st = document.createElement("div"); st.className = "strip"; list.forEach(f => st.appendChild(card(f)));
+  s.append(h, st); return s;
+}
+function renderHero(f) {
+  const box = $("hero"); box.innerHTML = ""; if (!f) return;
+  const h = document.createElement("div"); h.className = "hero";
+  h.appendChild(mkImg(imgUrls(f, true), "himg", true));
+  const c = document.createElement("div"); c.className = "hc";
+  const t = document.createElement("h1"); t.textContent = f.title;
+  const meta = document.createElement("div"); meta.className = "note"; meta.style.marginBottom = "8px"; meta.textContent = [f.year, f.genres.join(", ")].filter(Boolean).join(" · ");
+  const p = document.createElement("p"); p.textContent = f.description;
+  const r = document.createElement("div"); r.className = "row";
+  const b1 = document.createElement("button"); b1.className = "w"; b1.textContent = "▶ Pogledaj trailer"; b1.onclick = () => openTrailer(f); if (!f.trailerId) b1.hidden = true;
+  const b2 = document.createElement("button"); b2.textContent = "👥 Pogledaj u grupi"; b2.onclick = () => groupWatch(f);
+  const b3 = document.createElement("button"); b3.className = "g"; b3.textContent = "ℹ Detalji"; b3.onclick = () => openDetail(f);
+  r.append(b1, b2, b3); c.append(t, meta, p, r); h.appendChild(c); box.appendChild(h);
+}
+function renderCatalog() {
+  const q = $("fq").value.trim();
+  const rows = $("rows"); rows.innerHTML = "";
+  const empty = $("empty");
+  if (!films.length) {
+    renderHero(null); empty.hidden = false;
+    empty.textContent = isAdmin ? "Još nema filmova. Dodajte prvi u Admin panelu." : "Još nema objavljenih filmova.";
+    if (isAdmin) { const b = document.createElement("button"); b.textContent = "Otvori Admin panel"; b.style.display = "block"; b.style.margin = "12px auto 0"; b.onclick = showAdmin; empty.appendChild(b); }
+    return;
+  }
+  empty.hidden = true;
+  if (q) {
+    renderHero(null);
+    const list = films.filter(f => matches(f, q));
+    if (!list.length) { empty.hidden = false; empty.textContent = "Nema filmova za “" + q + "”."; return; }
+    rows.appendChild(strip("Rezultati pretrage", list)); return;
+  }
+  renderHero(films.find(f => f.featured) || films[0]);
+  rows.appendChild(strip("Svi filmovi", films));
+  const by = {};
+  films.forEach(f => f.genres.forEach(g => { (by[g] = by[g] || []).push(f); }));
+  Object.keys(by).sort((a, b) => by[b].length - by[a].length || a.localeCompare(b)).forEach(g => rows.appendChild(strip(g, by[g])));
+}
+$("fq").oninput = renderCatalog;
+$("nv-films").onclick = showHome;
+
+/* detalji, trailer, grupa */
+function openDetail(f) {
+  curFilm = f;
+  $("dimg").innerHTML = ""; $("dimg").appendChild(mkImg(imgUrls(f, true), "", true));
+  $("dt").textContent = f.title;
+  $("dmeta").textContent = [f.year, f.genres.join(", ")].filter(Boolean).join(" · ");
+  $("dd").textContent = f.description || "";
+  $("dtr").hidden = !f.trailerId;
+  $("dgr").textContent = "👥 Pogledaj u grupi";
+  $("dnote").textContent = f.movieUrl ? "U grupi se pušta cijeli film." : "U grupi se pušta trailer, i vide ga svi koje pozoveš.";
+  $("ded").hidden = !isAdmin;
+  $("dm").hidden = false;
+}
+function closeDetail() { $("dm").hidden = true; }
+function openTrailer(f) {
+  if (!f.trailerId) return;
+  $("tf").src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(f.trailerId) + "?autoplay=1&rel=0&playsinline=1";
+  $("tm").hidden = false;
+}
+function closeTrailer() { $("tm").hidden = true; $("tf").src = "about:blank"; }
+function groupWatch(f) {
+  closeTrailer(); closeDetail(); leaveCall();
+  socket.emit("create", { filmId: f.id }, res => {
+    if (res.error) { err(res.error); return; }
+    err(""); enter(res);
+  });
+}
+$("dx").onclick = closeDetail; $("tx").onclick = closeTrailer;
+$("dm").onclick = e => { if (e.target === $("dm")) closeDetail(); };
+$("tm").onclick = e => { if (e.target === $("tm")) closeTrailer(); };
+$("dtr").onclick = () => curFilm && openTrailer(curFilm);
+$("dgr").onclick = () => curFilm && groupWatch(curFilm);
+$("ded").onclick = () => { const f = curFilm; closeDetail(); showAdmin(); if (f) fillForm(f); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") { if (!$("tm").hidden) closeTrailer(); else if (!$("dm").hidden) closeDetail(); } });
+
+/* ---------- admin panel ---------- */
+function showAdmin() {
+  if (!isAdmin) return;
+  show("admin"); renderAdminList();
+  const w = $("astore");
+  if (storage === "datoteka") {
+    w.hidden = false; w.className = "warn"; w.style.marginTop = "12px";
+    w.textContent = "⚠️ Filmovi se trenutno spremaju u datoteku na serveru. Na besplatnom Render planu se ona briše pri svakom restartu i novom deployu. Za trajno čuvanje podesite Upstash (vidi README, korak “Trajna pohrana”).";
+  } else if (storage === "upstash") {
+    w.hidden = false; w.className = "warn okb"; w.style.marginTop = "12px"; w.textContent = "✓ Trajna pohrana je aktivna (Upstash). Filmovi ostaju i nakon restarta.";
+  } else w.hidden = true;
+}
+$("nv-admin").onclick = showAdmin;
+function amsg(t, good) { const m = $("amsg"); m.textContent = t || ""; m.style.color = good ? "#7ee29a" : "#ff9c9c"; }
+function readForm() {
+  return { title: $("af_title").value, year: $("af_year").value, genres: $("af_genres").value, description: $("af_desc").value,
+    trailer: $("af_trailer").value, poster: $("af_poster").value, movieUrl: $("af_movie").value, featured: $("af_feat").checked };
+}
+function clearForm() {
+  editId = ""; ["af_title", "af_year", "af_genres", "af_desc", "af_trailer", "af_poster", "af_movie"].forEach(id => { $(id).value = ""; });
+  $("af_feat").checked = false; $("aft").textContent = "Novi film"; $("adel").hidden = true; updatePrev();
+}
+function fillForm(f) {
+  editId = f.id; $("aft").textContent = "Uređivanje: " + f.title; $("adel").hidden = false; amsg("");
+  $("af_title").value = f.title; $("af_year").value = f.year || ""; $("af_genres").value = f.genres.join(", ");
+  $("af_desc").value = f.description || ""; $("af_trailer").value = f.trailerId ? "https://www.youtube.com/watch?v=" + f.trailerId : "";
+  $("af_poster").value = f.poster || ""; $("af_movie").value = f.movieUrl || ""; $("af_feat").checked = !!f.featured;
+  updatePrev(); document.querySelector("#admin").scrollTop = 0;
+}
+function updatePrev() {
+  const box = $("aprev"); box.innerHTML = "";
+  const id = parseYTc($("af_trailer").value), p = $("af_poster").value.trim();
+  const urls = []; if (/^https?:\/\/\S+$/i.test(p)) urls.push(p); if (id) urls.push("https://i.ytimg.com/vi/" + id + "/hqdefault.jpg");
+  box.hidden = !urls.length; if (urls.length) box.appendChild(mkImg(urls, "", true));
+}
+["af_trailer", "af_poster"].forEach(id => { $(id).oninput = updatePrev; });
+$("anew").onclick = () => { clearForm(); amsg(""); };
+$("asave").onclick = async () => {
+  amsg(""); $("asave").disabled = true;
+  try {
+    const body = readForm();
+    if (editId) { const j = await api("PUT", "/api/films/" + editId, body); amsg("Sačuvano ✓", true); fillForm(j.film); }
+    else { const j = await api("POST", "/api/films", body); clearForm(); amsg("Dodano: " + j.film.title + " ✓", true); }
+    await loadFilms();
+  } catch (e) { amsg(e.message); }
+  $("asave").disabled = false;
+};
+async function deleteFilm(f) {
+  if (!confirm("Obrisati film “" + f.title + "”?")) return;
+  try { await api("DELETE", "/api/films/" + f.id); if (editId === f.id) clearForm(); amsg("Obrisano ✓", true); await loadFilms(); }
+  catch (e) { amsg(e.message); }
+}
+$("adel").onclick = () => { const f = films.find(x => x.id === editId); if (f) deleteFilm(f); };
+function renderAdminList() {
+  const box = $("alist"); box.innerHTML = ""; $("acount").textContent = films.length;
+  if (!films.length) { box.textContent = "Nema filmova."; return; }
+  films.forEach(f => {
+    const r = document.createElement("div"); r.className = "ar";
+    const u = imgUrls(f, false);
+    if (u.length) r.appendChild(mkImg(u, "")); else { const ph = document.createElement("div"); ph.className = "ph"; r.appendChild(ph); }
+    const tt = document.createElement("div"); tt.className = "tt";
+    const b = document.createElement("b"); b.textContent = (f.featured ? "★ " : "") + f.title;
+    const s = document.createElement("span"); s.className = "note"; s.textContent = [f.year, f.genres.join(", "), f.movieUrl ? "ima cijeli film" : ""].filter(Boolean).join(" · ");
+    tt.append(b, s);
+    const e = document.createElement("button"); e.className = "g"; e.textContent = "Uredi"; e.onclick = () => fillForm(f);
+    const d = document.createElement("button"); d.className = "g"; d.style.color = "#ff8a8a"; d.textContent = "Obriši"; d.onclick = () => deleteFilm(f);
+    r.append(tt, e, d); box.appendChild(r);
+  });
+}
 
 /* ---------- osobe ---------- */
 function renderPeers() {
@@ -236,17 +592,54 @@ function renderPeers() {
   });
 }
 
-/* ---------- chat ---------- */
-function addMsg(m) {
-  if (seen.has(m.id)) return; seen.add(m.id);
-  const box = $("msgs"); const stick = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-  const el = document.createElement("div"); el.className = "m" + (m.uid === (me && me.id) ? " me" : "");
-  const s = document.createElement("small"); s.textContent = m.name;
-  el.append(s, document.createTextNode(m.text)); box.appendChild(el);
-  if (stick || m.uid === (me && me.id)) box.scrollTop = box.scrollHeight;
+/* ---------- chat u uglu (kartice: Soba i Opšti chat) ---------- */
+const chat = { r: { seen: new Set(), unread: 0, el: $("cm-r") }, l: { seen: new Set(), unread: 0, el: $("cm-l") } };
+let tab = "l", cstate = "min";
+try { const sv = localStorage.getItem("zj_chat"); if (sv === "open" || sv === "big") cstate = sv; } catch (e) {}
+function padChat() {
+  const h = cstate === "min" ? 56 : Math.round(cstate === "big" ? Math.min(innerHeight * 0.72, 720) : Math.min(420, innerHeight * 0.62)) + 16;
+  document.documentElement.style.setProperty("--chatpad", h + "px");
 }
-function sendChat() { const t = $("ci").value.trim(); if (!t) return; $("ci").value = ""; socket.emit("chat", { text: t }); }
+function setCState(s) {
+  cstate = s; $("chat").className = s === "open" ? "" : s;
+  try { localStorage.setItem("zj_chat", s); } catch (e) {}
+  if (s !== "min") { chat[tab].unread = 0; const el = chat[tab].el; el.scrollTop = el.scrollHeight; }
+  updateBadge(); padChat();
+}
+function setTab(t) {
+  tab = t; $("cm-r").hidden = t !== "r"; $("cm-l").hidden = t !== "l";
+  $("tabr").className = "tb" + (t === "r" ? " act" : ""); $("tabl").className = "tb" + (t === "l" ? " act" : "");
+  if (cstate !== "min") chat[t].unread = 0;
+  updateBadge(); const el = chat[t].el; el.scrollTop = el.scrollHeight;
+}
+function updateBadge() {
+  const r = chat.r.unread, l = chat.l.unread;
+  $("tabr").textContent = "Soba" + (r ? " (" + r + ")" : ""); $("tabl").textContent = "Opšti chat" + (l ? " (" + l + ")" : "");
+  const tot = r + l; $("cbad").hidden = !(cstate === "min" && tot); $("cbad").textContent = tot;
+}
+function resetChat(ch) { const c = chat[ch]; c.seen.clear(); c.el.innerHTML = ""; c.unread = 0; updateBadge(); }
+function addMsg(ch, m, silent) {
+  const c = chat[ch]; if (!m || c.seen.has(m.id)) return; c.seen.add(m.id);
+  const mine = m.uid === (me && me.id);
+  const stick = c.el.scrollHeight - c.el.scrollTop - c.el.clientHeight < 80;
+  const el = document.createElement("div"); el.className = "m" + (mine ? " me" : "");
+  const s = document.createElement("small"); s.textContent = m.name;
+  el.append(s, document.createTextNode(m.text)); c.el.appendChild(el);
+  if (stick || mine) c.el.scrollTop = c.el.scrollHeight;
+  if (!mine && !silent && (cstate === "min" || tab !== ch)) { c.unread++; updateBadge(); }
+}
+function sendChat() {
+  const t = $("ci").value.trim(); if (!t || !socket) return; $("ci").value = "";
+  socket.emit(tab === "r" ? "chat" : "lobby:chat", { text: t });
+}
 $("cs").onclick = sendChat; $("ci").onkeydown = e => { if (e.key === "Enter") sendChat(); };
+$("chead").onclick = e => { if (e.target.closest("button")) return; setCState(cstate === "min" ? "open" : "min"); };
+$("cmin").onclick = () => setCState(cstate === "min" ? "open" : "min");
+$("cbig").onclick = () => setCState(cstate === "big" ? "open" : "big");
+$("tabr").onclick = () => { setTab("r"); if (cstate === "min") setCState("open"); };
+$("tabl").onclick = () => { setTab("l"); if (cstate === "min") setCState("open"); };
+window.addEventListener("resize", padChat);
+setCState(cstate); setTab("l");
 
 /* ---------- video ---------- */
 const v = $("v");
@@ -334,13 +727,9 @@ setInterval(() => {
   ytLast = t; ytLastAt = now;
 }, 500);
 
-/* ---------- pretraga ---------- */
-function parseYT(u) {
-  const m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
-  return m ? m[1] : "";
-}
+/* ---------- pretraga u sobi ---------- */
 function playLink(u) {
-  const id = parseYT(u);
+  const id = parseYTc(u);
   if (id) socket.emit("video:set", { type: "yt", id, title: "" });
   else if (/^https?:\/\//i.test(u)) socket.emit("video:set", { url: u, title: "" });
   else err("Zalijepite punu adresu (https://…) ili YouTube link.");

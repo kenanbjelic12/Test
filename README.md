@@ -21,7 +21,7 @@ export SESSION_SECRET="$(openssl rand -hex 32)"
 npm start
 ```
 
-Otvori http://localhost:3000. Za probu bez Googlea: `DEV_LOGIN=1 npm start` (pokazuje polje za ime; **nikad ne uključuj na internetu**). Automatski test: pokreni server s `DEV_LOGIN=1 SESSION_SECRET=test PORT=3111`, pa u drugom terminalu `npm test`.
+Otvori http://localhost:3000. Za probu bez Googlea: `DEV_LOGIN=1 npm start` (pokazuje polje za ime; **nikad ne uključuj na internetu**; ime koje počinje s "Admin" dobija admin prava). Automatski test: pokreni server s `DEV_LOGIN=1 SESSION_SECRET=test PORT=3111`, pa u drugom terminalu `npm test`.
 
 ## 3. Postavljanje na internet
 
@@ -32,10 +32,31 @@ Mikrofon u pregledniku radi samo preko `https`, pa ti treba hosting s HTTPS-om. 
 - Adresu koju dobiješ dodaj u Google *Authorized JavaScript origins* (korak 1.4).
 - Dok je besplatni plan "uspavan", prvi dolazak čeka nekoliko sekundi, a sobe se gube pri restartu.
 
+## Katalog filmova i admin panel
+
+Početna stranica je katalog u stilu Netflixa: istaknuti film, redovi po žanrovima i pretraga. Klik na film otvara detalje s dugmadima **Pogledaj trailer** i **Pogledaj u grupi**. Drugo stvara sobu u kojoj se svima prikazuje YouTube trailer (ako je za film upisan i link na cijeli film, pušta se on). Chat je stalno u donjem uglu: može se povećati, smanjiti, a ima karticu *Soba* i *Opšti chat*.
+
+**Administrator** vidi *Admin panel* (dodavanje, uređivanje i brisanje filmova, opisi, žanrovi, postere, trailer linkovi, lista objavljenih filmova). Ko je admin određuje varijabla:
+
+- `ADMIN_EMAILS`: Gmail adrese administratora, odvojene zarezom (npr. `kenanbjelic12@gmail.com`). Dodaj je na Renderu pod *Environment*.
+
+### Trajna pohrana kataloga (preporučeno na Renderu)
+
+Besplatni Render briše datoteke pri svakom restartu i deployu, pa bi se dodani filmovi izgubili. Zato koristi besplatnu Upstash Redis bazu:
+
+1. Na https://upstash.com napravi račun i novu *Redis* bazu (besplatni plan je dovoljan).
+2. Na stranici baze, u dijelu *REST API*, kopiraj **UPSTASH_REDIS_REST_URL** i **UPSTASH_REDIS_REST_TOKEN**.
+3. Dodaj obje varijable na Renderu i pokreni novi deploy. Admin panel prestaje prikazivati upozorenje o pohrani.
+
+Bez njih katalog se sprema u datoteku (`DATA_DIR`, zadano `./data`). To je u redu za probu i za hosting s trajnim diskom.
+
 ## Dodatne postavke (opcionalno)
 
 | Varijabla | Šta radi |
 |---|---|
+| `ADMIN_EMAILS` | Admini kataloga (vidi gore). |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Trajna pohrana kataloga (vidi gore). |
+| `DATA_DIR` | Mapa za datoteku kataloga ako se ne koristi Upstash. |
 | `ALLOWED_EMAILS` | Spisak emailova odvojenih zarezom. Samo oni mogu ući (npr. za par ili uski krug). |
 | `TURN_URL`, `TURN_USER`, `TURN_PASS` | TURN server za glas kad direktna veza ne uspije (stroge mreže, neki mobilni operateri). |
 | `YOUTUBE_API_KEY` | Uključuje YouTube pretragu u aplikaciji (vidi ispod). Bez njega radi pretraga Internet Archivea i lijepljenje linkova. |
