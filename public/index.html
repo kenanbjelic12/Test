@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zajedno – grupno gledanje</title>
+<style>
+:root{--bg:#f4f1ee;--sf:#fff;--tx:#1d1a17;--mut:#6f6760;--ac:#d9480f;--bd:#ddd5cc;--me:#fde8dc;--ok:#2f9e44;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#14110f;--sf:#1f1b18;--tx:#f1ece7;--mut:#a39a91;--ac:#ff7a3d;--bd:#342f2a;--me:#3a2418;color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+button,input{font:inherit;color:inherit}
+button{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+button.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+button.on{background:var(--ok)}
+button:disabled{opacity:.5;cursor:default}
+input{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;min-width:0}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.note{color:var(--mut);font-size:12px}
+h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)}
+header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);background:var(--sf);flex-wrap:wrap}
+header b{font-size:18px}header b span{color:var(--ac)}
+.sp{flex:1}
+.av{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--bd);flex:none}
+#err{display:none;padding:8px 16px;background:#fde8dc;color:#8a2c00;font-size:13px}
+.center{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+.center .card{max-width:360px;width:100%;padding:24px;text-align:center}
+.center input{width:100%;margin:8px 0}
+.center h2{margin:0 0 6px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.row input{flex:1;min-width:140px}
+#room{flex:1;min-height:0;display:flex;flex-direction:column}
+main{flex:1;min-height:0;overflow:auto;padding:12px 16px;display:grid;grid-template-columns:1fr 230px;gap:12px;align-content:start}
+@media(max-width:720px){main{grid-template-columns:1fr}}
+video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:block}
+.pe{display:flex;align-items:center;gap:8px;padding:4px 0}
+.pe .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pe.talk .av{box-shadow:0 0 0 3px rgba(47,158,68,.6)}.pe.talk .nm{font-weight:600}
+.vr{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}.vr span{width:70px;color:var(--mut)}.vr input{flex:1;padding:0}
+.films button{display:block;width:100%;text-align:left;margin-bottom:6px}
+#dock{border-top:2px solid var(--ac);background:var(--sf);height:34vh;min-height:180px;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0)}
+#msgs{flex:1;overflow:auto;padding:8px 16px}
+.m{margin:4px 0;max-width:80%;padding:6px 10px;border-radius:10px;border:1px solid var(--bd);width:fit-content;overflow-wrap:anywhere}
+.m.me{background:var(--me);margin-left:auto}.m small{color:var(--mut);display:block}
+#cf{display:flex;gap:8px;padding:8px 16px;border-top:1px solid var(--bd)}#cf input{flex:1}
+</style>
+</head>
+<body>
+<div id="err"></div>
+
+<section id="login" class="center" hidden>
+  <div class="card">
+    <h2>Zajedno<span style="color:var(--ac)">.</span></h2>
+    <p class="note" style="margin:0 0 16px">Gledajte filmove s drugima, uz chat i razgovor. Prijavite se Google nalogom.</p>
+    <div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div>
+    <div id="gnote" class="note"></div>
+    <div id="dev" hidden style="margin-top:16px;border-top:1px dashed var(--bd);padding-top:12px">
+      <div class="note">Razvojni način (bez Googlea)</div>
+      <input id="devname" placeholder="Ime" maxlength="40"><button id="devgo" style="width:100%">Uđi</button>
+    </div>
+  </div>
+</section>
+
+<section id="home" hidden style="flex:1;display:flex;flex-direction:column">
+  <header><b>Zajedno<span>.</span></b><div class="sp"></div><img id="avatar" class="av" alt="" referrerpolicy="no-referrer"><span id="who"></span><button id="out" class="g">Odjava</button></header>
+  <div class="center"><div class="card">
+    <h3>Nova soba</h3>
+    <button id="mk" style="width:100%">Napravi sobu</button>
+    <div class="note" style="margin:16px 0 4px">ili uđite u postojeću</div>
+    <input id="jc" placeholder="Kod sobe, npr. K7M2QX" maxlength="12" style="text-transform:uppercase;text-align:center">
+    <button id="jn" class="g" style="width:100%">Uđi u sobu</button>
+  </div></div>
+</section>
+
+<section id="room" hidden>
+  <header>
+    <b>Zajedno<span>.</span></b><span class="note">Soba <b id="code"></b></span><div class="sp"></div>
+    <button id="inv" class="g">🔗 Pozovi</button>
+    <button id="mute" class="g" hidden>🎙️ Mikrofon uključen</button>
+    <button id="mic" class="g">📞 Pridruži se pozivu</button>
+    <button id="lv" class="g">Izađi</button>
+  </header>
+  <main>
+    <section>
+      <video id="v" controls playsinline></video>
+      <div class="row"><input id="url" placeholder="Link na video (.mp4) koji smijete streamati"><button id="load">Učitaj za sve</button></div>
+      <div class="row"><label class="g" style="border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer">Lokalni fajl<input id="file" type="file" accept="video/*" hidden></label>
+        <span class="note" style="align-self:center">Svi moraju odabrati isti fajl; play/pause se i dalje sinhronizuju.</span></div>
+      <div class="card" style="margin-top:8px"><div class="vr"><span>🎬 Film</span><input id="vf" type="range" min="0" max="100" value="100"></div><div class="vr"><span>🗣️ Glas</span><input id="vv" type="range" min="0" max="100" value="100"></div></div>
+      <div class="note" id="st" style="margin-top:6px"></div>
+    </section>
+    <aside>
+      <div class="card" style="margin-bottom:12px"><h3>U sobi</h3><div id="peers"></div></div>
+      <div class="card films"><h3>Javno dostupni filmovi</h3>
+        <button class="g" data-u="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" data-t="Big Buck Bunny">Big Buck Bunny</button>
+        <button class="g" data-u="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4" data-t="Sintel">Sintel</button>
+        <button class="g" data-u="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4" data-t="Tears of Steel">Tears of Steel</button>
+      </div>
+    </aside>
+  </main>
+  <div id="dock"><div id="msgs"></div>
+    <div id="cf"><input id="ci" placeholder="Napišite poruku…" maxlength="300" autocomplete="off"><button id="cs">Pošalji</button></div></div>
+  <div id="audios" hidden></div>
+</section>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+const $ = id => document.getElementById(id);
+let cfg = null, socket = null, me = null, roomCode = "", members = [];
+let token = ""; try { token = localStorage.getItem("zj_token") || ""; } catch (e) {}
+let localStream = null, quiet = false, voiceVol = 1, ctx = null;
+const pcs = {}, an = {}, rtcQ = {}, seen = new Set();
+
+function show(id) { ["login", "home", "room"].forEach(x => { $(x).hidden = x !== id; }); }
+function err(t) { const e = $("err"); e.textContent = t || ""; e.style.display = t ? "block" : "none"; }
+function note(t) { $("st").textContent = t || ""; }
+
+/* ---------- prijava ---------- */
+async function init() {
+  try { cfg = await (await fetch("/config")).json(); }
+  catch (e) { show("login"); err("Server nije dostupan."); return; }
+  setupLogin();
+  if (token) connect(); else show("login");
+}
+function setupLogin() {
+  if (cfg.dev) $("dev").hidden = false;
+  if (!cfg.clientId) { $("gnote").textContent = "Google prijava nije podešena na serveru (GOOGLE_CLIENT_ID)."; return; }
+  const t = setInterval(() => {
+    if (window.google && google.accounts && google.accounts.id) {
+      clearInterval(t);
+      google.accounts.id.initialize({ client_id: cfg.clientId, callback: onCred, auto_select: false });
+      google.accounts.id.renderButton($("gbtn"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", width: 280 });
+    }
+  }, 200);
+}
+async function postJson(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(j.error || "Greška");
+  return j;
+}
+async function onCred(resp) { try { gotToken(await postJson("/auth/google", { credential: resp.credential })); } catch (e) { err(e.message); } }
+$("devgo").onclick = async () => { try { gotToken(await postJson("/auth/dev", { name: $("devname").value })); } catch (e) { err(e.message); } };
+function gotToken(j) { err(""); token = j.token; try { localStorage.setItem("zj_token", token); } catch (e) {} connect(); }
+function logout() {
+  token = ""; try { localStorage.removeItem("zj_token"); } catch (e) {}
+  leaveCall(); if (socket) socket.disconnect(); socket = null; roomCode = ""; show("login");
+}
+$("out").onclick = logout;
+
+/* ---------- veza i sobe ---------- */
+function connect() {
+  if (socket) socket.disconnect();
+  socket = io({ auth: { token } });
+  socket.on("connect_error", e => { if (e.message === "unauthorized") { logout(); err("Prijava je istekla, prijavite se ponovo."); } else err("Veza sa serverom: " + e.message); });
+  socket.on("hello", u => {
+    err(""); me = u; $("who").textContent = u.name;
+    if (u.picture) $("avatar").src = u.picture; else $("avatar").hidden = true;
+    const q = new URLSearchParams(location.search).get("room");
+    if (roomCode) join(roomCode); else if (q) join(q); else show("home");
+  });
+  socket.on("members", list => { members = list; renderPeers(); Object.keys(pcs).forEach(s => { if (!list.some(m => m.sid === s)) closePc(s); }); });
+  socket.on("chat", addMsg);
+  socket.on("video:set", setVideo);
+  socket.on("video:state", applyRemote);
+  socket.on("rtc:hi", onHi);
+  socket.on("rtc", onRtc);
+  socket.on("rtc:bye", d => closePc(d.from));
+}
+function join(code) {
+  socket.emit("join", { code }, res => {
+    if (res.error) { err(res.error); roomCode = ""; history.replaceState(null, "", location.pathname); show("home"); return; }
+    err(""); enter(res);
+  });
+}
+function enter(s) {
+  roomCode = s.code; me = s.me; members = s.members;
+  history.replaceState(null, "", "?room=" + s.code);
+  $("code").textContent = s.code; show("room");
+  $("msgs").innerHTML = ""; seen.clear(); s.chat.forEach(addMsg);
+  renderPeers(); if (s.video && s.video.url) setVideo(s);
+}
+$("mk").onclick = () => socket.emit("create", {}, res => { if (res.error) err(res.error); else { err(""); enter(res); } });
+$("jn").onclick = () => { const c = $("jc").value.trim(); if (c) join(c); };
+$("jc").onkeydown = e => { if (e.key === "Enter") $("jn").onclick(); };
+$("lv").onclick = () => { leaveCall(); socket.emit("leave"); roomCode = ""; members = []; history.replaceState(null, "", location.pathname); show("home"); };
+$("inv").onclick = async () => {
+  const link = location.origin + "/?room=" + roomCode;
+  const text = "Pridruži mi se u gledanju filma: " + link;
+  if (navigator.share) { try { await navigator.share({ title: "Zajedno", text }); return; } catch (e) {} }
+  try { await navigator.clipboard.writeText(link); $("inv").textContent = "Link kopiran ✓"; setTimeout(() => $("inv").textContent = "🔗 Pozovi", 2000); }
+  catch (e) { prompt("Kopirajte link:", link); }
+};
+
+/* ---------- osobe ---------- */
+function renderPeers() {
+  const box = $("peers"); box.innerHTML = "";
+  members.forEach(m => {
+    const d = document.createElement("div"); d.className = "pe"; d.dataset.sid = m.sid;
+    const img = document.createElement("img"); img.className = "av"; img.referrerPolicy = "no-referrer"; img.alt = "";
+    if (m.picture) img.src = m.picture; else img.style.visibility = "hidden";
+    const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = m.name + (m.sid === (socket && socket.id) ? " (vi)" : "");
+    const mic = document.createElement("span"); mic.textContent = m.mic ? "🎙️" : "";
+    d.append(img, nm, mic); box.appendChild(d);
+  });
+}
+
+/* ---------- chat ---------- */
+function addMsg(m) {
+  if (seen.has(m.id)) return; seen.add(m.id);
+  const box = $("msgs"); const stick = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const el = document.createElement("div"); el.className = "m" + (m.uid === (me && me.id) ? " me" : "");
+  const s = document.createElement("small"); s.textContent = m.name;
+  el.append(s, document.createTextNode(m.text)); box.appendChild(el);
+  if (stick || m.uid === (me && me.id)) box.scrollTop = box.scrollHeight;
+}
+function sendChat() { const t = $("ci").value.trim(); if (!t) return; $("ci").value = ""; socket.emit("chat", { text: t }); }
+$("cs").onclick = sendChat; $("ci").onkeydown = e => { if (e.key === "Enter") sendChat(); };
+
+/* ---------- video ---------- */
+const v = $("v");
+function applyRemote(s) {
+  quiet = true;
+  if (Math.abs(v.currentTime - s.t) > 1.5) v.currentTime = s.t;
+  if (s.playing && v.paused) v.play().catch(() => note("Kliknite play: preglednik blokira automatsko puštanje."));
+  if (!s.playing && !v.paused) v.pause();
+  setTimeout(() => { quiet = false; }, 700);
+}
+function setVideo(s) {
+  if (!s || !s.url) return;
+  $("url").value = s.url; note("Gledate: " + (s.title || s.url));
+  if (v.dataset.u !== s.url) {
+    v.dataset.u = s.url; v.src = s.url;
+    v.onloadedmetadata = () => { v.onloadedmetadata = null; applyRemote(s); };
+  } else applyRemote(s);
+}
+["play", "pause", "seeked"].forEach(ev => v.addEventListener(ev, () => {
+  if (!quiet && socket && roomCode) socket.emit("video:state", { playing: !v.paused, t: v.currentTime });
+}));
+$("load").onclick = () => { const u = $("url").value.trim(); if (u) socket.emit("video:set", { url: u, title: "" }); };
+document.querySelectorAll(".films button").forEach(b => b.onclick = () => socket.emit("video:set", { url: b.dataset.u, title: b.dataset.t }));
+$("file").onchange = e => { const f = e.target.files[0]; if (f) { v.dataset.u = ""; v.src = URL.createObjectURL(f); note("Lokalni fajl: " + f.name); } };
+$("vf").oninput = e => { v.volume = e.target.value / 100; };
+$("vv").oninput = e => { voiceVol = e.target.value / 100; document.querySelectorAll("#audios audio").forEach(a => { a.volume = voiceVol; }); };
+
+/* ---------- glas (WebRTC, signalizacija preko servera) ---------- */
+function mkPc(sid) {
+  if (pcs[sid]) return pcs[sid];
+  const pc = new RTCPeerConnection({ iceServers: cfg.iceServers }); pcs[sid] = pc;
+  localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  pc.onicecandidate = e => { if (e.candidate) socket.emit("rtc", { to: sid, data: { k: "ice", c: e.candidate } }); };
+  pc.ontrack = e => {
+    let a = document.getElementById("a" + sid);
+    if (!a) { a = document.createElement("audio"); a.id = "a" + sid; a.autoplay = true; a.volume = voiceVol; $("audios").appendChild(a); }
+    a.srcObject = e.streams[0]; watch(e.streams[0], sid);
+  };
+  pc.onconnectionstatechange = () => { if (pc.connectionState === "failed") closePc(sid); };
+  return pc;
+}
+function closePc(sid) {
+  const pc = pcs[sid]; if (pc) { try { pc.close(); } catch (e) {} delete pcs[sid]; }
+  const a = document.getElementById("a" + sid); if (a) a.remove();
+  delete an[sid]; setTalk(sid, false);
+}
+function qrtc(sid, fn) { rtcQ[sid] = (rtcQ[sid] || Promise.resolve()).then(fn).catch(e => console.warn("rtc", e)); }
+function onHi(d) {
+  if (!localStream) return;
+  qrtc(d.from, async () => {
+    closePc(d.from);
+    const pc = mkPc(d.from); const o = await pc.createOffer(); await pc.setLocalDescription(o);
+    socket.emit("rtc", { to: d.from, data: { k: "offer", s: pc.localDescription } });
+  });
+}
+function onRtc(d) {
+  if (!localStream) return;
+  const from = d.from, x = d.data || {};
+  qrtc(from, async () => {
+    if (x.k === "offer") {
+      let pc = pcs[from];
+      if (pc && pc.signalingState !== "stable") { if (socket.id > from) return; closePc(from); }
+      pc = mkPc(from); await pc.setRemoteDescription(x.s);
+      const a = await pc.createAnswer(); await pc.setLocalDescription(a);
+      socket.emit("rtc", { to: from, data: { k: "answer", s: pc.localDescription } });
+    } else if (x.k === "answer") {
+      const pc = pcs[from]; if (pc && pc.signalingState === "have-local-offer") await pc.setRemoteDescription(x.s);
+    } else if (x.k === "ice") {
+      const pc = pcs[from]; if (pc) { try { await pc.addIceCandidate(x.c); } catch (e) {} }
+    }
+  });
+}
+function watch(stream, sid) {
+  try {
+    ctx = ctx || new AudioContext(); ctx.resume();
+    const a = ctx.createAnalyser(); a.fftSize = 512; ctx.createMediaStreamSource(stream).connect(a); an[sid] = a;
+  } catch (e) {}
+}
+function setTalk(sid, on) { document.querySelectorAll('.pe[data-sid="' + CSS.escape(sid) + '"]').forEach(el => el.classList.toggle("talk", on)); }
+setInterval(() => {
+  const buf = new Uint8Array(512);
+  Object.keys(an).forEach(sid => {
+    an[sid].getByteTimeDomainData(buf); let s = 0;
+    for (const x of buf) { const d = (x - 128) / 128; s += d * d; }
+    setTalk(sid, Math.sqrt(s / buf.length) > 0.04);
+  });
+}, 150);
+
+function setMute(m) {
+  if (!localStream) return;
+  localStream.getAudioTracks().forEach(t => { t.enabled = !m; });
+  $("mute").textContent = m ? "🔇 Mikrofon isključen" : "🎙️ Mikrofon uključen";
+  $("mute").className = m ? "g" : "on";
+  socket.emit("mic", !m);
+}
+$("mute").onclick = () => setMute($("mute").classList.contains("on"));
+document.addEventListener("keydown", e => {
+  if (e.key.toLowerCase() === "m" && localStream && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) setMute($("mute").classList.contains("on"));
+});
+function leaveCall() {
+  if (!localStream) return;
+  localStream.getTracks().forEach(t => t.stop()); localStream = null;
+  Object.keys(pcs).forEach(closePc);
+  if (socket && roomCode) { socket.emit("mic", false); socket.emit("rtc:bye"); }
+  delete an[socket && socket.id];
+  $("mic").textContent = "📞 Pridruži se pozivu"; $("mute").hidden = true; setTalk(socket ? socket.id : "", false);
+}
+$("mic").onclick = async () => {
+  if (localStream) { leaveCall(); return; }
+  err("");
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    err("Mikrofon je dostupan samo preko sigurne (https) adrese i u novijem pregledniku."); return;
+  }
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    localStream = null;
+    const n = (e && e.name) || "";
+    err(n === "NotAllowedError" ? "Mikrofon je blokiran. Kliknite ikonu brave u adresnoj traci, dozvolite mikrofon i pokušajte ponovo."
+      : n === "NotFoundError" ? "Mikrofon nije pronađen na ovom uređaju." : "Poziv nije uspio: " + (n || "greška"));
+    return;
+  }
+  $("mic").textContent = "📴 Napusti poziv"; $("mute").hidden = false;
+  watch(localStream, socket.id); setMute(false);
+  socket.emit("rtc:hi");
+};
+
+init();
+</script>
+</body>
+</html>
