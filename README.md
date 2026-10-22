@@ -50,6 +50,10 @@ Besplatni Render briše datoteke pri svakom restartu i deployu, pa bi se dodani 
 
 Bez njih katalog se sprema u datoteku (`DATA_DIR`, zadano `./data`). To je u redu za probu i za hosting s trajnim diskom.
 
+### Link na film
+
+Polje *Link na film* (i polje "Pusti svima" u sobi) prima: YouTube link, Vimeo link, direktan video (`.mp4`, `.webm`), HLS (`.m3u8`) ili zalijepljen **iframe kod** (`<iframe src="…">`; aplikacija sama izvuče adresu). Play, pauza i premotavanje se sinhroniziraju za sve u sobi. Ostali embed servisi bez API-ja za kontrolu ne mogu se sinhronizirati i nisu podržani.
+
 ## Dodatne postavke (opcionalno)
 
 | Varijabla | Šta radi |

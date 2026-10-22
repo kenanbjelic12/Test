@@ -96,8 +96,8 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
 .pe.talk .av{box-shadow:0 0 0 3px rgba(47,158,68,.6)}.pe.talk .nm{font-weight:600}
 .vr{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}.vr span{width:70px;color:var(--mut)}.vr input{flex:1;padding:0}
 .films button{display:block;width:100%;text-align:left;margin-bottom:6px}
-#ytwrap{width:100%;aspect-ratio:16/9;max-height:52vh;background:#000;border-radius:10px;overflow:hidden}
-#ytwrap iframe{width:100%;height:100%;display:block}
+#ytwrap,#vmwrap{width:100%;aspect-ratio:16/9;max-height:52vh;background:#000;border-radius:10px;overflow:hidden}
+#ytwrap iframe,#vmwrap iframe{width:100%;height:100%;display:block;border:0}
 .res{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px;max-height:280px;overflow:auto}
 .it{cursor:pointer;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:var(--bg)}
 .it:hover{border-color:var(--ac)}
@@ -168,7 +168,7 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
       <label class="fld"><span>Opis</span><textarea id="af_desc" maxlength="2000"></textarea></label>
       <label class="fld"><span>YouTube trailer (link) *</span><input id="af_trailer" placeholder="https://www.youtube.com/watch?v=…"></label>
       <label class="fld"><span>Slika / poster (link, nije obavezno; inače se uzima sličica trailera)</span><input id="af_poster" placeholder="https://…/poster.jpg"></label>
-      <label class="fld"><span>Link na cijeli film (nije obavezno; .mp4 ili YouTube). Ako ga dodate, "Pogledaj u grupi" pušta njega umjesto trailera.</span><input id="af_movie" placeholder="https://…/film.mp4"></label>
+      <label class="fld"><span>Link na cijeli film (nije obavezno): YouTube, Vimeo, .mp4/.webm/.m3u8 ili zalijepljen iframe kod tih servisa. Ako ga dodate, "Pogledaj u grupi" pušta njega umjesto trailera.</span><input id="af_movie" placeholder="https://vimeo.com/… ili <iframe …> ili https://…/film.mp4"></label>
       <label class="note" style="display:block;margin-bottom:10px"><input type="checkbox" id="af_feat" style="margin-right:6px">Istaknut film (veliki baner na početnoj)</label>
       <div class="mimg" style="border-radius:8px;margin-bottom:10px" id="aprev" hidden></div>
       <div class="row" style="margin-top:0"><button id="asave">Sačuvaj</button><button id="anew" class="g">Novi / očisti</button><button id="adel" class="g" hidden style="color:#ff8a8a">Obriši film</button></div>
@@ -195,6 +195,7 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
       <video id="v" controls playsinline></video>
       <div class="note" style="margin:4px 0"><button id="rsync" class="g" title="Poravnaj me s ostalima">🔄 Sinhroniziraj</button> <span id="syncst"></span></div>
       <div id="ytwrap" hidden><div id="ytp"></div></div>
+      <div id="vmwrap" hidden></div>
       <div class="card" style="margin-top:8px">
         <h3>Pretraga filmova</h3>
         <div class="row" style="margin-top:0">
@@ -203,7 +204,7 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
         </div>
         <label class="note" id="longl" style="display:block;margin-top:6px"><input type="checkbox" id="long" checked style="padding:0"> samo dugi videi (filmovi)</label>
         <div id="res" class="res"></div>
-        <div class="row"><input id="url" placeholder="ili zalijepite YouTube / .mp4 link"><button id="load">Pusti svima</button></div>
+        <div class="row"><input id="url" placeholder="ili zalijepite YouTube / Vimeo / .mp4 / .m3u8 link ili iframe kod"><button id="load">Pusti svima</button></div>
         <div class="note">Kad kliknete film, pušta se svima u sobi.</div>
       </div>
       <div class="row"><label class="g" style="border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer">Lokalni fajl<input id="file" type="file" accept="video/*" hidden></label>
@@ -657,12 +658,24 @@ function ensureYT(cb) {
   }
 }
 function ytState() { try { return yt.getPlayerState(); } catch (e) { return -1; } }
-function curTime() { try { return cur.type === "yt" ? (ytReady ? yt.getCurrentTime() : 0) : v.currentTime; } catch (e) { return 0; } }
-function curPlaying() { if (cur.type === "yt") { const st = ytState(); return st === 1 || st === 3; } return !v.paused; }
+function curTime() {
+  try {
+    if (cur.type === "yt") return ytReady ? yt.getCurrentTime() : 0;
+    if (cur.type === "vimeo") return vm.t + (vm.playing ? (Date.now() - vm.at) / 1000 : 0);
+    return v.currentTime;
+  } catch (e) { return 0; }
+}
+function curPlaying() { if (cur.type === "yt") { const st = ytState(); return st === 1 || st === 3; } if (cur.type === "vimeo") return vm.playing; return !v.paused; }
 function sendState() { if (!quiet && socket && roomCode) socket.emit("video:state", { playing: curPlaying(), t: curTime() }); }
 function applyRemote(s) {
   quiet = true;
-  if (cur.type === "yt") {
+  if (cur.type === "vimeo") {
+    if (vm.player && vm.ready) {
+      if (Math.abs(curTime() - s.t) > 1.5) vm.player.setCurrentTime(s.t).catch(() => {});
+      if (s.playing && !vm.playing) vm.player.play().catch(() => note("Kliknite play: preglednik blokira automatsko puštanje."));
+      if (!s.playing && vm.playing) vm.player.pause().catch(() => {});
+    }
+  } else if (cur.type === "yt") {
     if (ytReady) {
       try {
         if (Math.abs(yt.getCurrentTime() - s.t) > 1.5) yt.seekTo(s.t, true);
@@ -679,13 +692,48 @@ function applyRemote(s) {
   setTimeout(() => { quiet = false; ytLast = null; }, 1000);
 }
 function showFileMode() {
-  cur = { type: "file", id: "" }; $("ytwrap").hidden = true; v.style.display = "block";
+  cur = { type: "file", id: "" }; $("ytwrap").hidden = true; $("vmwrap").hidden = true; v.style.display = "block";
   if (yt && ytReady) { try { yt.pauseVideo(); } catch (e) {} }
+  stopVimeo();
+}
+/* ---- Vimeo (Player API: play, pause, seek, vrijeme) ---- */
+const vm = { player: null, ready: false, id: "", t: 0, at: 0, playing: false };
+function stopVimeo() { if (vm.player) { try { vm.player.destroy(); } catch (e) {} } vm.player = null; vm.ready = false; vm.id = ""; vm.playing = false; $("vmwrap").innerHTML = ""; }
+function loadVimeoApi(cb) {
+  if (window.Vimeo && Vimeo.Player) return cb();
+  const sc = document.createElement("script"); sc.src = "https://player.vimeo.com/api/player.js";
+  sc.onload = cb; sc.onerror = () => note("Vimeo se ne može učitati (blokiran na ovoj mreži?)."); document.head.appendChild(sc);
+}
+function setVimeo(s) {
+  v.style.display = "none"; try { v.pause(); } catch (e) {}
+  $("ytwrap").hidden = true; $("vmwrap").hidden = false;
+  if (yt && ytReady) { try { yt.pauseVideo(); } catch (e) {} }
+  cur = { type: "vimeo", id: s.id };
+  if (vm.id === s.id && vm.ready) return applyRemote(s);
+  stopVimeo(); vm.id = s.id; vm.t = s.t || 0; vm.at = Date.now();
+  const [vid, hash] = s.id.split(":");
+  const f = document.createElement("iframe");
+  f.src = "https://player.vimeo.com/video/" + encodeURIComponent(vid) + "?playsinline=1&dnt=1" + (hash ? "&h=" + encodeURIComponent(hash) : "");
+  f.allow = "autoplay; fullscreen; picture-in-picture"; f.allowFullscreen = true;
+  $("vmwrap").appendChild(f);
+  loadVimeoApi(() => {
+    if (vm.id !== s.id) return;
+    const p = new Vimeo.Player(f); vm.player = p;
+    const set = (playing, t) => { vm.playing = playing; if (t !== undefined) vm.t = t; vm.at = Date.now(); };
+    p.on("timeupdate", d => { vm.t = d.seconds; vm.at = Date.now(); });
+    p.on("play", d => { set(true, d.seconds); sendState(); });
+    p.on("pause", d => { set(false, d.seconds); sendState(); });
+    p.on("seeked", d => { set(vm.playing, d.seconds); sendState(); });
+    p.on("error", () => note("Vimeo ne dopušta ovaj video (privatan ili ugrađivanje isključeno)."));
+    p.ready().then(() => { vm.ready = true; applyFilm(); applyRemote(s); }).catch(() => note("Vimeo video se ne može učitati."));
+  });
 }
 function setVideo(s) {
   if (!s || (!s.url && !s.id)) return;
   note("Gledate: " + (s.title || s.url));
+  if (s.type === "vimeo") { $("url").value = s.url || ""; return setVimeo(s); }
   if (s.type === "yt") {
+    stopVimeo(); $("vmwrap").hidden = true;
     const changed = cur.type !== "yt" || cur.id !== s.id;
     try { v.pause(); } catch (e) {}
     v.style.display = "none"; $("ytwrap").hidden = false; cur = { type: "yt", id: s.id };
@@ -734,7 +782,7 @@ function resync(manual) {
   if (!socket || !roomCode || quiet) return;
   socket.emit("video:sync", {}, s => {
     if (!s) { if (manual) $("syncst").textContent = "Nema videa u sobi."; return; }
-    const same = (s.type === "yt" ? cur.type === "yt" && cur.id === s.id : cur.type === "file" && v.dataset.u === s.url);
+    const same = (s.type === "yt" || s.type === "vimeo") ? cur.type === s.type && cur.id === s.id : cur.type === "file" && v.dataset.u === s.url;
     if (!same) setVideo(s); else if (manual || Math.abs(curTime() - s.t) > 2.5 || (s.playing !== curPlaying())) applyRemote(s);
     if (manual) { $("syncst").textContent = "Poravnato ✓"; setTimeout(() => { $("syncst").textContent = ""; }, 2000); }
   });
@@ -742,7 +790,7 @@ function resync(manual) {
 $("rsync").onclick = () => resync(true);
 setInterval(() => { if (curPlaying()) resync(false); }, 8000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) resync(false); });
-["play", "pause", "seeked"].forEach(ev => v.addEventListener(ev, () => { if (cur.type !== "yt") sendState(); }));
+["play", "pause", "seeked"].forEach(ev => v.addEventListener(ev, () => { if (cur.type === "file") sendState(); }));
 /* YouTube nema događaj premotavanja, pa se skok vremena otkriva provjerom */
 setInterval(() => {
   if (cur.type !== "yt" || !ytReady) return;
@@ -759,8 +807,8 @@ setInterval(() => {
 function playLink(u) {
   const id = parseYTc(u);
   if (id) socket.emit("video:set", { type: "yt", id, title: "" });
-  else if (/^https?:\/\//i.test(u)) socket.emit("video:set", { url: u, title: "" });
-  else err("Zalijepite punu adresu (https://…) ili YouTube link.");
+  else if (/^\s*(https?:\/\/|<iframe)/i.test(u)) socket.emit("video:set", { url: u, title: "" });
+  else err("Zalijepite punu adresu (https://…), YouTube/Vimeo link ili iframe kod.");
 }
 $("load").onclick = () => { const u = $("url").value.trim(); if (u) { err(""); playLink(u); } };
 $("url").onkeydown = e => { if (e.key === "Enter") $("load").onclick(); };
@@ -825,6 +873,7 @@ function applyFilm() {
   const t = ($("duck").checked && anyTalk) ? filmBase * 0.3 : filmBase;
   try { v.volume = t; } catch (e) {}
   if (yt && ytReady) { try { yt.setVolume(Math.round(t * 100)); } catch (e) {} }
+  if (vm.player && vm.ready) { try { vm.player.setVolume(t); } catch (e) {} }
 }
 $("vf").oninput = e => { filmBase = e.target.value / 100; applyFilm(); };
 $("vv").oninput = e => { voiceVol = e.target.value / 100; document.querySelectorAll("#audios audio").forEach(a => { a.volume = voiceVol; }); };

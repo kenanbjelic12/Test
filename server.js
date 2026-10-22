@@ -261,8 +261,7 @@ io.on("connection", socket => {
       video: { url: "", title: "", t: 0, playing: false, at: 0 }, emptySince: Date.now() };
     if (film) {
       const g = catalog.groupVideo(film);
-      r.video = { ...(g.type === "yt" ? { type: "yt", id: g.id, url: "https://www.youtube.com/watch?v=" + g.id } : { type: "file", id: "", url: g.url }),
-        title: g.title, t: 0, playing: false, at: Date.now() };
+      r.video = { type: g.type, id: g.id || "", url: g.url, title: g.title, t: 0, playing: false, at: Date.now() };
     }
     rooms.set(c, r);
     enter(r, ack);
@@ -306,9 +305,8 @@ io.on("connection", socket => {
       if (!/^[\w-]{11}$/.test(id)) return;
       vid = { type: "yt", id, url: "https://www.youtube.com/watch?v=" + id };
     } else {
-      const url = String((d && d.url) || "").trim();
-      if (!/^https?:\/\//i.test(url) || url.length > 2000) return;
-      vid = { type: "file", id: "", url };
+      vid = catalog.parseMedia(String((d && d.url) || "").slice(0, 3000)); // link ili zalijepljen iframe kod
+      if (!vid || vid.url.length > 2000) return;
     }
     r.video = { ...vid, title, t: 0, playing: false, at: Date.now() };
     io.to(code).emit("video:set", videoNow(r));

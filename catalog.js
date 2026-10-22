@@ -13,6 +13,29 @@ function parseYT(u) {
 }
 const isHttp = u => /^https?:\/\/\S+$/i.test(u);
 
+/* Iz zalijepljenog iframe koda (<iframe src="...">) izvuče adresu; običan link vrati nepromijenjen */
+function extractUrl(raw) {
+  const s = String(raw || "").trim();
+  if (/<iframe/i.test(s)) { const m = s.match(/\bsrc\s*=\s*["']([^"']+)["']/i); return m ? m[1].replace(/&amp;/g, "&").trim() : ""; }
+  return s;
+}
+/* Prepoznaje izvor koji se može sinhronizirati: YouTube, Vimeo ili direktan video link (.mp4, .webm, .m3u8...).
+   Vraća { type: "yt"|"vimeo"|"file", id, url } ili null. */
+function parseMedia(raw) {
+  const u = extractUrl(raw);
+  if (!u) return null;
+  const yt = parseYT(u);
+  if (yt) return { type: "yt", id: yt, url: "https://www.youtube.com/watch?v=" + yt };
+  const vm = u.match(/^https?:\/\/(?:www\.|player\.)?vimeo\.com\/(?:video\/|channels\/[\w-]+\/|groups\/[\w-]+\/videos\/)?(\d{5,12})(?:\/([0-9a-f]{8,16}))?(?:[?#]\S*)?$/i);
+  if (vm) {
+    const h = vm[2] || (u.match(/[?&]h=([0-9a-f]{8,16})/i) || [])[1] || "";
+    return { type: "vimeo", id: vm[1] + (h ? ":" + h : ""), url: "https://vimeo.com/" + vm[1] + (h ? "/" + h : "") };
+  }
+  if (/^https?:\/\/(?:[\w-]+\.)*(?:dailymotion\.com|dai\.ly)\//i.test(u)) return null; // Dailymotion još nije podržan (traži vlastiti Player ID)
+  if (isHttp(u) && u.length <= 2000) return { type: "file", id: "", url: u };
+  return null;
+}
+
 function clean(input) {
   const i = input || {};
   const title = String(i.title || "").trim();
@@ -43,8 +66,12 @@ function clean(input) {
   const trailerId = trailerRaw ? parseYT(trailerRaw) : "";
   if (trailerRaw && !trailerId) throw new ValidationError("Trailer mora biti YouTube link.");
 
-  const movieUrl = String(i.movieUrl || "").trim();
-  if (movieUrl && (!isHttp(movieUrl) || movieUrl.length > 1000)) throw new ValidationError("Link na film mora početi sa http:// ili https://.");
+  let movieUrl = String(i.movieUrl || "").trim();
+  if (movieUrl) {
+    const media = parseMedia(movieUrl);
+    if (!media || media.url.length > 1000) throw new ValidationError("Link na film nije prepoznat. Zalijepi YouTube, Vimeo ili direktan video link (.mp4, .webm, .m3u8), ili iframe kod tih servisa.");
+    movieUrl = media.url;
+  }
 
   if (!trailerId && !movieUrl) throw new ValidationError("Dodajte YouTube trailer ili link na film.");
 
@@ -70,11 +97,9 @@ function remove(list, id) {
 
 /* Šta se pušta svima kad neko klikne "Pogledaj u grupi": cijeli film ako je dodan, inače trailer */
 function groupVideo(film) {
-  if (film.movieUrl) {
-    const id = parseYT(film.movieUrl);
-    return id ? { type: "yt", id, title: film.title } : { type: "file", url: film.movieUrl, title: film.title };
-  }
-  return { type: "yt", id: film.trailerId, title: film.title + " (trailer)" };
+  const m = film.movieUrl && parseMedia(film.movieUrl);
+  if (m) return { ...m, title: film.title };
+  return { type: "yt", id: film.trailerId, url: "https://www.youtube.com/watch?v=" + film.trailerId, title: film.title + " (trailer)" };
 }
 
 /* Primjeri za prvo pokretanje (otvoreni filmovi Blender fondacije); admin ih može obrisati ili urediti */
@@ -90,4 +115,4 @@ function seed(now = Date.now()) {
   return items.map((it, k) => ({ id: "primjer" + (k + 1), ...clean(it), createdAt: now - k, updatedAt: now - k }));
 }
 
-module.exports = { ValidationError, NotFoundError, parseYT, clean, create, update, remove, groupVideo, seed };
+module.exports = { extractUrl, parseMedia, ValidationError, NotFoundError, parseYT, clean, create, update, remove, groupVideo, seed };

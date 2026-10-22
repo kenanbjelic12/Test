@@ -60,6 +60,13 @@ const emit = (s, ev, d) => new Promise(r => s.emit(ev, d, r));
   const yta = once(a, "video:set");
   b.emit("video:set", { type: "yt", id: "dQw4w9WgXcQ", title: "Probni YT" });
   const ytm = await yta; assert.strictEqual(ytm.type, "yt"); assert.strictEqual(ytm.id, "dQw4w9WgXcQ");
+  // Vimeo link i zalijepljen iframe kod
+  const vma = once(a, "video:set");
+  b.emit("video:set", { url: "<iframe src=\"https://player.vimeo.com/video/76979871?h=abcdef1234&amp;title=0\" width=\"640\"></iframe>", title: "Vimeo" });
+  const vmm = await vma; assert.strictEqual(vmm.type, "vimeo"); assert.strictEqual(vmm.id, "76979871:abcdef1234");
+  const yta2 = once(a, "video:set");
+  b.emit("video:set", { url: "<iframe src=\"https://www.youtube.com/embed/dQw4w9WgXcQ\"></iframe>" });
+  assert.strictEqual((await yta2).id, "dQw4w9WgXcQ");
   // vrati na obični fajl za ostatak testa
   const back = once(a, "video:set");
   b.emit("video:set", { url: "https://example.com/film.mp4", title: "Film" });
