@@ -189,8 +189,12 @@ function connect() {
   socket.on("rtc:hi", onHi);
   socket.on("rtc", onRtc);
   socket.on("rtc:bye", d => closePc(d.from));
+  socket.on("disconnect", () => {
+    if (localStream) { leaveCall(); err("Veza sa serverom je prekinuta, pa je mikrofon isključen. Kad se veza vrati, ponovo se pridružite pozivu."); }
+  });
 }
 function join(code) {
+  leaveCall();
   socket.emit("join", { code }, res => {
     if (res.error) { err(res.error); roomCode = ""; history.replaceState(null, "", location.pathname); show("home"); return; }
     err(""); enter(res);
@@ -203,7 +207,7 @@ function enter(s) {
   $("msgs").innerHTML = ""; seen.clear(); s.chat.forEach(addMsg);
   renderPeers(); if (s.video && (s.video.url || s.video.id)) setVideo(s.video);
 }
-$("mk").onclick = () => socket.emit("create", {}, res => { if (res.error) err(res.error); else { err(""); enter(res); } });
+$("mk").onclick = () => { leaveCall(); socket.emit("create", {}, res => { if (res.error) err(res.error); else { err(""); enter(res); } }); };
 $("jn").onclick = () => { const c = $("jc").value.trim(); if (c) join(c); };
 $("jc").onkeydown = e => { if (e.key === "Enter") $("jn").onclick(); };
 $("lv").onclick = () => { leaveCall(); socket.emit("leave"); roomCode = ""; members = []; history.replaceState(null, "", location.pathname); show("home"); };
@@ -497,7 +501,7 @@ function leaveCall() {
   if (!localStream) return;
   localStream.getTracks().forEach(t => t.stop()); localStream = null;
   Object.keys(pcs).forEach(closePc);
-  if (socket && roomCode) { socket.emit("mic", false); socket.emit("rtc:bye"); }
+  if (socket && socket.connected && roomCode) { socket.emit("mic", false); socket.emit("rtc:bye"); }
   delete an[socket && socket.id];
   $("mic").textContent = "📞 Pridruži se pozivu"; $("mute").hidden = true; setTalk(socket ? socket.id : "", false);
 }
@@ -520,6 +524,10 @@ $("mic").onclick = async () => {
   watch(localStream, socket.id); setMute(false);
   socket.emit("rtc:hi");
 };
+
+/* zatvaranje stranice ili odlazak s nje: mikrofon se uvijek oslobađa */
+window.addEventListener("pagehide", () => { leaveCall(); });
+window.addEventListener("beforeunload", () => { if (localStream) localStream.getTracks().forEach(t => t.stop()); });
 
 init();
 </script>
