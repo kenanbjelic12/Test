@@ -15,7 +15,8 @@ const DEV = process.env.DEV_LOGIN === "1";
 const ALLOWED = (process.env.ALLOWED_EMAILS || "")
   .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const SESSION_MS = 30 * 24 * 3600 * 1000;
-const ADMINS = new Set((process.env.ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean));
+const ADMINS = new Set((process.env.ADMIN_EMAILS || "").split(/[,;\s]+/).map(s => s.trim().replace(/^["']+|["']+$/g, "").toLowerCase()).filter(Boolean));
+console.log("Admin emailova: " + ADMINS.size + (ADMINS.size ? " (" + [...ADMINS].map(e => e.replace(/^(.).*(@.*)$/, "$1***$2")).join(", ") + ")" : " (ADMIN_EMAILS nije postavljen)"));
 if (DEV) ADMINS.add("dev-admin@local"); // u razvojnom načinu je admin svako ime koje počinje sa "admin"
 const isAdminEmail = e => !!e && ADMINS.has(String(e).toLowerCase());
 const MAX_MEMBERS = 12;
@@ -170,6 +171,7 @@ app.post("/auth/google", async (req, res) => {
     if (ALLOWED.length && !ALLOWED.includes(String(p.email).toLowerCase())) {
       return res.status(403).json({ error: "Ovaj email nema pristup." });
     }
+    console.log("Prijava: " + String(p.email).replace(/^(.).*(@.*)$/, "$1***$2") + " admin=" + isAdminEmail(p.email));
     res.json(issue({ id: p.sub, name: String(p.name || p.email).slice(0, 40), picture: p.picture || "", email: p.email }));
   } catch (e) {
     res.status(401).json({ error: "Google prijava nije uspjela." });
