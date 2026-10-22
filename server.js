@@ -313,6 +313,10 @@ io.on("connection", socket => {
     r.video = { ...vid, title, t: 0, playing: false, at: Date.now() };
     io.to(code).emit("video:set", videoNow(r));
   });
+  socket.on("video:sync", (d, ack) => { // klijent traži trenutno stanje (ručno ili automatska provjera odstupanja)
+    const r = rooms.get(code); if (typeof ack !== "function") return;
+    ack(r && r.video && (r.video.url || r.video.id) ? videoNow(r) : null);
+  });
   socket.on("video:state", d => {
     const r = rooms.get(code); if (!r || !r.video.url) return;
     const t = Number(d && d.t);

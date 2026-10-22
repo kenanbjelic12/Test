@@ -193,6 +193,7 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
   <main>
     <section>
       <video id="v" controls playsinline></video>
+      <div class="note" style="margin:4px 0"><button id="rsync" class="g" title="Poravnaj me s ostalima">🔄 Sinhroniziraj</button> <span id="syncst"></span></div>
       <div id="ytwrap" hidden><div id="ytp"></div></div>
       <div class="card" style="margin-top:8px">
         <h3>Pretraga filmova</h3>
@@ -710,10 +711,37 @@ function setVideo(s) {
   showFileMode();
   $("url").value = s.url;
   if (v.dataset.u !== s.url) {
-    v.dataset.u = s.url; v.src = s.url;
+    v.dataset.u = s.url;
+    if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
     v.onloadedmetadata = () => { v.onloadedmetadata = null; applyRemote(s); };
+    if (/\.m3u8(\?|#|$)/i.test(s.url) && !v.canPlayType("application/vnd.apple.mpegurl")) {
+      loadHls(() => { // HLS (.m3u8) strujanje preko hls.js
+        if (!window.Hls || !Hls.isSupported()) return note("Ovaj preglednik ne podržava HLS (.m3u8) strujanje.");
+        hls = new Hls(); hls.loadSource(s.url); hls.attachMedia(v);
+        hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) note("Strujanje nije uspjelo (link nedostupan ili blokiran)."); });
+      });
+    } else v.src = s.url;
   } else applyRemote(s);
 }
+let hls = null;
+function loadHls(cb) {
+  if (window.Hls) return cb();
+  const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js";
+  sc.onload = cb; sc.onerror = () => note("HLS biblioteka se ne može učitati."); document.head.appendChild(sc);
+}
+/* poravnanje s ostalima: ručno dugme i tiha provjera svakih 8 s dok video svira */
+function resync(manual) {
+  if (!socket || !roomCode || quiet) return;
+  socket.emit("video:sync", {}, s => {
+    if (!s) { if (manual) $("syncst").textContent = "Nema videa u sobi."; return; }
+    const same = (s.type === "yt" ? cur.type === "yt" && cur.id === s.id : cur.type === "file" && v.dataset.u === s.url);
+    if (!same) setVideo(s); else if (manual || Math.abs(curTime() - s.t) > 2.5 || (s.playing !== curPlaying())) applyRemote(s);
+    if (manual) { $("syncst").textContent = "Poravnato ✓"; setTimeout(() => { $("syncst").textContent = ""; }, 2000); }
+  });
+}
+$("rsync").onclick = () => resync(true);
+setInterval(() => { if (curPlaying()) resync(false); }, 8000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) resync(false); });
 ["play", "pause", "seeked"].forEach(ev => v.addEventListener(ev, () => { if (cur.type !== "yt") sendState(); }));
 /* YouTube nema događaj premotavanja, pa se skok vremena otkriva provjerom */
 setInterval(() => {
