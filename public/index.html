@@ -106,7 +106,10 @@ select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding
       </div>
       <div class="row"><label class="g" style="border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer">Lokalni fajl<input id="file" type="file" accept="video/*" hidden></label>
         <span class="note" style="align-self:center">Svi moraju odabrati isti fajl; play/pause se i dalje sinhronizuju.</span></div>
-      <div class="card" style="margin-top:8px"><div class="vr"><span>🎬 Film</span><input id="vf" type="range" min="0" max="100" value="100"></div><div class="vr"><span>🗣️ Glas</span><input id="vv" type="range" min="0" max="100" value="100"></div></div>
+      <div class="card" style="margin-top:8px"><div class="vr"><span>🎬 Film</span><input id="vf" type="range" min="0" max="100" value="100"></div><div class="vr"><span>🗣️ Glas</span><input id="vv" type="range" min="0" max="100" value="100"></div>
+        <label class="note" style="display:block;margin-top:8px"><input type="checkbox" id="gate" checked style="padding:0;margin-right:6px">Potisni jeku i šum (mikrofon šalje samo dok pričate)</label>
+        <label class="note" style="display:block;margin-top:4px"><input type="checkbox" id="duck" checked style="padding:0;margin-right:6px">Utišaj film dok neko priča</label>
+        <div class="note" style="margin-top:4px">Najveće smanjenje jeke daju slušalice.</div></div>
       <div class="note" id="st" style="margin-top:6px"></div>
     </section>
     <aside>
@@ -300,7 +303,7 @@ function setVideo(s) {
           width: "100%", height: "100%", videoId: s.id,
           playerVars: { playsinline: 1, rel: 0, origin: location.origin },
           events: {
-            onReady: () => { ytReady = true; applyRemote(s); },
+            onReady: () => { ytReady = true; applyFilm(); applyRemote(s); },
             onStateChange: e => { if (e.data === 1 || e.data === 2) sendState(); }
           }
         });
@@ -400,7 +403,13 @@ $("q").onkeydown = e => { if (e.key === "Enter") doSearch(); };
 $("src").onchange = () => { $("longl").hidden = $("src").value !== "yt"; $("res").innerHTML = ""; };
 document.querySelectorAll(".films button").forEach(b => b.onclick = () => socket.emit("video:set", { url: b.dataset.u, title: b.dataset.t }));
 $("file").onchange = e => { const f = e.target.files[0]; if (f) { showFileMode(); v.dataset.u = ""; v.src = URL.createObjectURL(f); note("Lokalni fajl: " + f.name); } };
-$("vf").oninput = e => { v.volume = e.target.value / 100; };
+let filmBase = 1, anyTalk = false;
+function applyFilm() {
+  const t = ($("duck").checked && anyTalk) ? filmBase * 0.3 : filmBase;
+  try { v.volume = t; } catch (e) {}
+  if (yt && ytReady) { try { yt.setVolume(Math.round(t * 100)); } catch (e) {} }
+}
+$("vf").oninput = e => { filmBase = e.target.value / 100; applyFilm(); };
 $("vv").oninput = e => { voiceVol = e.target.value / 100; document.querySelectorAll("#audios audio").forEach(a => { a.volume = voiceVol; }); };
 
 /* ---------- glas (WebRTC, signalizacija preko servera) ---------- */
@@ -477,18 +486,39 @@ function watch(stream, sid) {
   } catch (e) {}
 }
 function setTalk(sid, on) { document.querySelectorAll('.pe[data-sid="' + CSS.escape(sid) + '"]').forEach(el => el.classList.toggle("talk", on)); }
+let micMuted = false, gateOpen = true, holdUntil = 0, monStream = null;
 setInterval(() => {
-  const buf = new Uint8Array(512);
+  const buf = new Uint8Array(512); let any = false;
   Object.keys(an).forEach(sid => {
     an[sid].getByteTimeDomainData(buf); let s = 0;
     for (const x of buf) { const d = (x - 128) / 128; s += d * d; }
-    setTalk(sid, Math.sqrt(s / buf.length) > 0.04);
+    let on = Math.sqrt(s / buf.length) > 0.04;
+    if (socket && sid === socket.id && micMuted) on = false;
+    if (on) any = true;
+    setTalk(sid, on);
   });
+  if (any !== anyTalk) { anyTalk = any; applyFilm(); }
 }, 150);
+/* glasovna aktivacija: mikrofon se otvara kad pričate i zatvara 0,8 s nakon tišine */
+setInterval(() => {
+  if (!localStream || !socket) return;
+  const a = an[socket.id]; if (!a) return;
+  const buf = new Uint8Array(512); a.getByteTimeDomainData(buf); let s = 0;
+  for (const x of buf) { const d = (x - 128) / 128; s += d * d; }
+  const now = Date.now();
+  if (Math.sqrt(s / buf.length) > 0.02) holdUntil = now + 800;
+  const open = now < holdUntil;
+  if (open !== gateOpen) { gateOpen = open; applyMic(); }
+}, 40);
 
+function applyMic() {
+  if (!localStream) return;
+  const on = !micMuted && (!$("gate").checked || gateOpen);
+  localStream.getAudioTracks().forEach(t => { t.enabled = on; });
+}
 function setMute(m) {
   if (!localStream) return;
-  localStream.getAudioTracks().forEach(t => { t.enabled = !m; });
+  micMuted = m; applyMic();
   $("mute").textContent = m ? "🔇 Mikrofon isključen" : "🎙️ Mikrofon uključen";
   $("mute").className = m ? "g" : "on";
   socket.emit("mic", !m);
@@ -500,6 +530,8 @@ document.addEventListener("keydown", e => {
 function leaveCall() {
   if (!localStream) return;
   localStream.getTracks().forEach(t => t.stop()); localStream = null;
+  if (monStream) { monStream.getTracks().forEach(t => t.stop()); monStream = null; }
+  micMuted = false; gateOpen = true; anyTalk = false; applyFilm();
   Object.keys(pcs).forEach(closePc);
   if (socket && socket.connected && roomCode) { socket.emit("mic", false); socket.emit("rtc:bye"); }
   delete an[socket && socket.id];
@@ -521,9 +553,19 @@ $("mic").onclick = async () => {
     return;
   }
   $("mic").textContent = "📴 Napusti poziv"; $("mute").hidden = false;
-  watch(localStream, socket.id); setMute(false);
+  /* analiza ide preko kopije toka, da mjerenje radi i dok je mikrofon privremeno zatvoren */
+  monStream = localStream.clone(); watch(monStream, socket.id);
+  gateOpen = true; holdUntil = Date.now() + 1500; setMute(false);
   socket.emit("rtc:hi");
 };
+
+["gate", "duck"].forEach(id => {
+  try { const sv = localStorage.getItem("zj_" + id); if (sv !== null) $(id).checked = sv === "1"; } catch (e) {}
+  $(id).onchange = () => {
+    try { localStorage.setItem("zj_" + id, $(id).checked ? "1" : "0"); } catch (e) {}
+    if (id === "gate") applyMic(); else applyFilm();
+  };
+});
 
 /* zatvaranje stranice ili odlazak s nje: mikrofon se uvijek oslobađa */
 window.addEventListener("pagehide", () => { leaveCall(); });
