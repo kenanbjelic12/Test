@@ -133,6 +133,7 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
     <p class="note" style="margin:0 0 16px">Gledajte filmove s drugima, uz chat i razgovor. Prijavite se Google nalogom.</p>
     <div id="gbtn" style="display:flex;justify-content:center;min-height:44px"></div>
     <div id="gnote" class="note"></div>
+    <a id="getapp2" class="appbtn" href="https://github.com/kenanbjelic12/APP/releases/latest/download/MojFilm.apk" style="margin-top:14px;justify-content:center;width:100%;box-sizing:border-box">📱 Preuzmi Android aplikaciju</a>
     <div id="dev" hidden style="margin-top:16px;border-top:1px dashed var(--bd);padding-top:12px">
       <div class="note">Razvojni način (bez Googlea). Ime koje počinje sa "admin" daje admin pristup.</div>
       <input id="devname" placeholder="Ime" maxlength="40"><button id="devgo" style="width:100%">Uđi</button>
@@ -1078,7 +1079,7 @@ window.addEventListener("beforeunload", () => { if (localStream) localStream.get
 init();
 </script>
 
-<!-- Preuzimanje Android aplikacije (samo na Androidu, ne unutar same aplikacije) -->
+<!-- Preuzimanje Android aplikacije (svima, osim unutar same aplikacije) -->
 <style>
 .appbtn{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.08);border:1px solid var(--bd);border-radius:6px;padding:8px 12px;color:var(--tx);text-decoration:none;font-weight:500;white-space:nowrap}
 .appbtn[hidden]{display:none}
@@ -1100,7 +1101,10 @@ init();
 <script>
 (function () {
   var ua = navigator.userAgent || "";
-  if (!/Android/i.test(ua) || /MojFilmApp/i.test(ua)) return;   // samo Android, ne u aplikaciji
+  if (/MojFilmApp/i.test(ua)) {                                   // unutar aplikacije: sakrij sve
+    var g2 = document.getElementById("getapp2"); if (g2) g2.hidden = true;
+    return;
+  }
   var hb = document.getElementById("getapp"); if (hb) hb.hidden = false;
   var until = 0; try { until = +localStorage.getItem("mfAppBannerHidden") || 0; } catch (e) {}
   if (Date.now() < until) return;
