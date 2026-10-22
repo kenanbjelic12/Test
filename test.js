@@ -53,6 +53,20 @@ const emit = (s, ev, d) => new Promise(r => s.emit(ev, d, r));
   b.emit("video:set", { url: "javascript:alert(1)" });
   await new Promise(r => setTimeout(r, 200)); assert.strictEqual(bad, false);
 
+  // YouTube video: prihvata se samo ispravan id
+  let badYt = false; a.once("video:set", () => { badYt = true; });
+  b.emit("video:set", { type: "yt", id: "ne<valja" });
+  await new Promise(r => setTimeout(r, 200)); assert.strictEqual(badYt, false);
+  const yta = once(a, "video:set");
+  b.emit("video:set", { type: "yt", id: "dQw4w9WgXcQ", title: "Probni YT" });
+  const ytm = await yta; assert.strictEqual(ytm.type, "yt"); assert.strictEqual(ytm.id, "dQw4w9WgXcQ");
+  // vrati na obični fajl za ostatak testa
+  const back = once(a, "video:set");
+  b.emit("video:set", { url: "https://example.com/film.mp4", title: "Film" });
+  assert.strictEqual((await back).type, "file");
+  b.emit("video:state", { playing: true, t: 42 });
+  await new Promise(r => setTimeout(r, 100));
+
   // kasniji član dobija historiju i stanje videa
   const c = await client(await login("Tarik"));
   const j3 = await emit(c, "join", { code: created.code });

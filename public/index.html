@@ -39,6 +39,14 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
 .pe.talk .av{box-shadow:0 0 0 3px rgba(47,158,68,.6)}.pe.talk .nm{font-weight:600}
 .vr{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px}.vr span{width:70px;color:var(--mut)}.vr input{flex:1;padding:0}
 .films button{display:block;width:100%;text-align:left;margin-bottom:6px}
+#ytwrap{width:100%;aspect-ratio:16/9;max-height:52vh;background:#000;border-radius:10px;overflow:hidden}
+#ytwrap iframe{width:100%;height:100%;display:block}
+select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:inherit;font:inherit}
+.res{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px;max-height:280px;overflow:auto}
+.it{cursor:pointer;border:1px solid var(--bd);border-radius:8px;overflow:hidden;background:var(--bg)}
+.it:hover{border-color:var(--ac)}
+.it img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:var(--bd)}
+.it div{padding:4px 6px;font-size:12px;overflow-wrap:anywhere}.it small{display:block;color:var(--mut)}
 #dock{border-top:2px solid var(--ac);background:var(--sf);height:34vh;min-height:180px;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0)}
 #msgs{flex:1;overflow:auto;padding:8px 16px}
 .m{margin:4px 0;max-width:80%;padding:6px 10px;border-radius:10px;border:1px solid var(--bd);width:fit-content;overflow-wrap:anywhere}
@@ -84,7 +92,18 @@ video{width:100%;max-height:52vh;background:#000;border-radius:10px;display:bloc
   <main>
     <section>
       <video id="v" controls playsinline></video>
-      <div class="row"><input id="url" placeholder="Link na video (.mp4) koji smijete streamati"><button id="load">Učitaj za sve</button></div>
+      <div id="ytwrap" hidden><div id="ytp"></div></div>
+      <div class="card" style="margin-top:8px">
+        <h3>Pretraga filmova</h3>
+        <div class="row" style="margin-top:0">
+          <select id="src"><option value="yt">YouTube</option><option value="ia">Internet Archive (javno vlasništvo)</option></select>
+          <input id="q" placeholder="Naziv filma…"><button id="sb">Traži</button>
+        </div>
+        <label class="note" id="longl" style="display:block;margin-top:6px"><input type="checkbox" id="long" checked style="padding:0"> samo dugi videi (filmovi)</label>
+        <div id="res" class="res"></div>
+        <div class="row"><input id="url" placeholder="ili zalijepite YouTube / .mp4 link"><button id="load">Pusti svima</button></div>
+        <div class="note">Kad kliknete film, pušta se svima u sobi.</div>
+      </div>
       <div class="row"><label class="g" style="border:1px solid var(--bd);border-radius:8px;padding:8px 12px;cursor:pointer">Lokalni fajl<input id="file" type="file" accept="video/*" hidden></label>
         <span class="note" style="align-self:center">Svi moraju odabrati isti fajl; play/pause se i dalje sinhronizuju.</span></div>
       <div class="card" style="margin-top:8px"><div class="vr"><span>🎬 Film</span><input id="vf" type="range" min="0" max="100" value="100"></div><div class="vr"><span>🗣️ Glas</span><input id="vv" type="range" min="0" max="100" value="100"></div></div>
@@ -123,6 +142,7 @@ async function init() {
   try { cfg = await (await fetch("/config")).json(); }
   catch (e) { show("login"); err("Server nije dostupan."); return; }
   setupLogin();
+  if (!cfg.searchYT) { $("src").value = "ia"; $("longl").hidden = true; }
   if (token) connect(); else show("login");
 }
 function setupLogin() {
@@ -181,7 +201,7 @@ function enter(s) {
   history.replaceState(null, "", "?room=" + s.code);
   $("code").textContent = s.code; show("room");
   $("msgs").innerHTML = ""; seen.clear(); s.chat.forEach(addMsg);
-  renderPeers(); if (s.video && s.video.url) setVideo(s);
+  renderPeers(); if (s.video && (s.video.url || s.video.id)) setVideo(s.video);
 }
 $("mk").onclick = () => socket.emit("create", {}, res => { if (res.error) err(res.error); else { err(""); enter(res); } });
 $("jn").onclick = () => { const c = $("jc").value.trim(); if (c) join(c); };
@@ -223,27 +243,159 @@ $("cs").onclick = sendChat; $("ci").onkeydown = e => { if (e.key === "Enter") se
 
 /* ---------- video ---------- */
 const v = $("v");
+let cur = { type: "", id: "" }, yt = null, ytReady = false, ytLast = null, ytLastAt = 0;
+const ytQ = [];
+function ensureYT(cb) {
+  if (window.YT && YT.Player) return cb();
+  ytQ.push(cb);
+  if (!document.getElementById("ytapi")) {
+    window.onYouTubeIframeAPIReady = () => { while (ytQ.length) ytQ.shift()(); };
+    const sc = document.createElement("script"); sc.id = "ytapi"; sc.src = "https://www.youtube.com/iframe_api";
+    sc.onerror = () => note("YouTube se ne može učitati (blokiran na ovoj mreži?).");
+    document.head.appendChild(sc);
+  }
+}
+function ytState() { try { return yt.getPlayerState(); } catch (e) { return -1; } }
+function curTime() { try { return cur.type === "yt" ? (ytReady ? yt.getCurrentTime() : 0) : v.currentTime; } catch (e) { return 0; } }
+function curPlaying() { if (cur.type === "yt") { const st = ytState(); return st === 1 || st === 3; } return !v.paused; }
+function sendState() { if (!quiet && socket && roomCode) socket.emit("video:state", { playing: curPlaying(), t: curTime() }); }
 function applyRemote(s) {
   quiet = true;
-  if (Math.abs(v.currentTime - s.t) > 1.5) v.currentTime = s.t;
-  if (s.playing && v.paused) v.play().catch(() => note("Kliknite play: preglednik blokira automatsko puštanje."));
-  if (!s.playing && !v.paused) v.pause();
-  setTimeout(() => { quiet = false; }, 700);
+  if (cur.type === "yt") {
+    if (ytReady) {
+      try {
+        if (Math.abs(yt.getCurrentTime() - s.t) > 1.5) yt.seekTo(s.t, true);
+        const st = ytState();
+        if (s.playing && st !== 1 && st !== 3) yt.playVideo();
+        if (!s.playing && (st === 1 || st === 3)) yt.pauseVideo();
+      } catch (e) {}
+    }
+  } else {
+    if (Math.abs(v.currentTime - s.t) > 1.5) v.currentTime = s.t;
+    if (s.playing && v.paused) v.play().catch(() => note("Kliknite play: preglednik blokira automatsko puštanje."));
+    if (!s.playing && !v.paused) v.pause();
+  }
+  setTimeout(() => { quiet = false; ytLast = null; }, 1000);
+}
+function showFileMode() {
+  cur = { type: "file", id: "" }; $("ytwrap").hidden = true; v.style.display = "block";
+  if (yt && ytReady) { try { yt.pauseVideo(); } catch (e) {} }
 }
 function setVideo(s) {
-  if (!s || !s.url) return;
-  $("url").value = s.url; note("Gledate: " + (s.title || s.url));
+  if (!s || (!s.url && !s.id)) return;
+  note("Gledate: " + (s.title || s.url));
+  if (s.type === "yt") {
+    const changed = cur.type !== "yt" || cur.id !== s.id;
+    try { v.pause(); } catch (e) {}
+    v.style.display = "none"; $("ytwrap").hidden = false; cur = { type: "yt", id: s.id };
+    $("url").value = s.url || "";
+    ensureYT(() => {
+      quiet = true;
+      if (!yt) {
+        yt = new YT.Player("ytp", {
+          width: "100%", height: "100%", videoId: s.id,
+          playerVars: { playsinline: 1, rel: 0, origin: location.origin },
+          events: {
+            onReady: () => { ytReady = true; applyRemote(s); },
+            onStateChange: e => { if (e.data === 1 || e.data === 2) sendState(); }
+          }
+        });
+      } else if (changed && ytReady) {
+        yt.loadVideoById({ videoId: s.id, startSeconds: s.t || 0 });
+        setTimeout(() => applyRemote(s), 1000);
+      } else if (ytReady) applyRemote(s);
+    });
+    return;
+  }
+  showFileMode();
+  $("url").value = s.url;
   if (v.dataset.u !== s.url) {
     v.dataset.u = s.url; v.src = s.url;
     v.onloadedmetadata = () => { v.onloadedmetadata = null; applyRemote(s); };
   } else applyRemote(s);
 }
-["play", "pause", "seeked"].forEach(ev => v.addEventListener(ev, () => {
-  if (!quiet && socket && roomCode) socket.emit("video:state", { playing: !v.paused, t: v.currentTime });
-}));
-$("load").onclick = () => { const u = $("url").value.trim(); if (u) socket.emit("video:set", { url: u, title: "" }); };
+["play", "pause", "seeked"].forEach(ev => v.addEventListener(ev, () => { if (cur.type !== "yt") sendState(); }));
+/* YouTube nema događaj premotavanja, pa se skok vremena otkriva provjerom */
+setInterval(() => {
+  if (cur.type !== "yt" || !ytReady) return;
+  let t; try { t = yt.getCurrentTime(); } catch (e) { return; }
+  const now = Date.now();
+  if (ytLast !== null && !quiet) {
+    const exp = ytLast + (ytState() === 1 ? (now - ytLastAt) / 1000 : 0);
+    if (Math.abs(t - exp) > 2) sendState();
+  }
+  ytLast = t; ytLastAt = now;
+}, 500);
+
+/* ---------- pretraga ---------- */
+function parseYT(u) {
+  const m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/);
+  return m ? m[1] : "";
+}
+function playLink(u) {
+  const id = parseYT(u);
+  if (id) socket.emit("video:set", { type: "yt", id, title: "" });
+  else if (/^https?:\/\//i.test(u)) socket.emit("video:set", { url: u, title: "" });
+  else err("Zalijepite punu adresu (https://…) ili YouTube link.");
+}
+$("load").onclick = () => { const u = $("url").value.trim(); if (u) { err(""); playLink(u); } };
+$("url").onkeydown = e => { if (e.key === "Enter") $("load").onclick(); };
+async function searchYT(q) {
+  const r = await fetch("/search?" + new URLSearchParams({ q, long: $("long").checked ? "1" : "0" }), { headers: { Authorization: "Bearer " + token } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || "YouTube pretraga nije uspjela.");
+  return (j.items || []).map(i => ({ thumb: i.thumb, title: i.title, sub: i.channel, play: () => socket.emit("video:set", { type: "yt", id: i.id, title: i.title }) }));
+}
+async function searchIA(q) {
+  const p = new URLSearchParams();
+  p.set("q", "(" + q + ") AND mediatype:movies");
+  p.append("fl[]", "identifier"); p.append("fl[]", "title");
+  p.set("rows", "18"); p.set("sort[]", "downloads desc"); p.set("output", "json");
+  const r = await fetch("https://archive.org/advancedsearch.php?" + p);
+  if (!r.ok) throw new Error("Internet Archive pretraga nije uspjela.");
+  const j = await r.json();
+  return ((j.response && j.response.docs) || []).map(d => {
+    const title = String(d.title || d.identifier);
+    return { thumb: "https://archive.org/services/img/" + encodeURIComponent(d.identifier), title, sub: "Internet Archive", play: () => playIA(d.identifier, title) };
+  });
+}
+async function playIA(id, title) {
+  note("Tražim video fajl…");
+  try {
+    const r = await fetch("https://archive.org/metadata/" + encodeURIComponent(id));
+    const j = await r.json();
+    const mp4 = (j.files || []).filter(f => /\.mp4$/i.test(f.name));
+    const f = mp4.find(x => /h\.?264/i.test(x.format || "")) || mp4.sort((a, b) => (+b.size || 0) - (+a.size || 0))[0];
+    if (!f) { note(""); err("Ovaj film nema mp4 verziju koja se može puštati ovdje."); return; }
+    err("");
+    const url = "https://archive.org/download/" + encodeURIComponent(id) + "/" + f.name.split("/").map(encodeURIComponent).join("/");
+    socket.emit("video:set", { url, title });
+  } catch (e) { note(""); err("Ne mogu dohvatiti film s Internet Archivea."); }
+}
+function renderRes(items) {
+  const box = $("res"); box.innerHTML = "";
+  if (!items.length) { box.textContent = "Nema rezultata."; return; }
+  items.forEach(it => {
+    const d = document.createElement("div"); d.className = "it"; d.tabIndex = 0; d.title = "Pusti svima";
+    const im = document.createElement("img"); im.alt = ""; im.loading = "lazy"; im.referrerPolicy = "no-referrer"; im.src = it.thumb;
+    const t = document.createElement("div"); t.textContent = it.title;
+    const s = document.createElement("small"); s.textContent = it.sub; t.appendChild(s);
+    d.onclick = () => { err(""); it.play(); };
+    d.onkeydown = e => { if (e.key === "Enter") d.onclick(); };
+    d.append(im, t); box.appendChild(d);
+  });
+}
+async function doSearch() {
+  const q = $("q").value.trim(); if (!q) return;
+  const box = $("res"); box.textContent = "Tražim…";
+  try { renderRes($("src").value === "yt" ? await searchYT(q) : await searchIA(q)); }
+  catch (e) { box.textContent = e.message || "Pretraga nije uspjela."; }
+}
+$("sb").onclick = doSearch;
+$("q").onkeydown = e => { if (e.key === "Enter") doSearch(); };
+$("src").onchange = () => { $("longl").hidden = $("src").value !== "yt"; $("res").innerHTML = ""; };
 document.querySelectorAll(".films button").forEach(b => b.onclick = () => socket.emit("video:set", { url: b.dataset.u, title: b.dataset.t }));
-$("file").onchange = e => { const f = e.target.files[0]; if (f) { v.dataset.u = ""; v.src = URL.createObjectURL(f); note("Lokalni fajl: " + f.name); } };
+$("file").onchange = e => { const f = e.target.files[0]; if (f) { showFileMode(); v.dataset.u = ""; v.src = URL.createObjectURL(f); note("Lokalni fajl: " + f.name); } };
 $("vf").oninput = e => { v.volume = e.target.value / 100; };
 $("vv").oninput = e => { voiceVol = e.target.value / 100; document.querySelectorAll("#audios audio").forEach(a => { a.volume = voiceVol; }); };
 

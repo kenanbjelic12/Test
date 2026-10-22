@@ -14,6 +14,7 @@ const ALLOWED = (process.env.ALLOWED_EMAILS || "")
   .split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
 const SESSION_MS = 30 * 24 * 3600 * 1000;
 const MAX_MEMBERS = 12;
+const YT_KEY = process.env.YOUTUBE_API_KEY || "";
 
 if (!process.env.SESSION_SECRET) {
   console.warn("UPOZORENJE: SESSION_SECRET nije postavljen. Prijave će isteći pri svakom restartu servera.");
@@ -58,7 +59,44 @@ function iceServers() {
   }
   return list;
 }
-app.get("/config", (req, res) => res.json({ clientId: CLIENT_ID, dev: DEV, iceServers: iceServers() }));
+app.get("/config", (req, res) => res.json({ clientId: CLIENT_ID, dev: DEV, iceServers: iceServers(), searchYT: !!YT_KEY }));
+
+/* YouTube pretraga: ključ ostaje na serveru, dozvoljeno samo prijavljenima, 10 pretraga u minuti po osobi */
+const searchHits = new Map();
+app.get("/search", async (req, res) => {
+  const p = verify(String(req.headers.authorization || "").replace(/^Bearer /, ""));
+  if (!p) return res.status(401).json({ error: "Niste prijavljeni." });
+  if (!YT_KEY) return res.status(501).json({ error: "YouTube pretraga nije podešena na serveru (YOUTUBE_API_KEY). Koristite Internet Archive ili zalijepite link." });
+  const now = Date.now();
+  const hits = (searchHits.get(p.id) || []).filter(t => now - t < 60000);
+  if (hits.length >= 10) return res.status(429).json({ error: "Previše pretraga, pričekajte minutu." });
+  hits.push(now); searchHits.set(p.id, hits);
+  const q = String(req.query.q || "").trim().slice(0, 100);
+  if (!q) return res.json({ items: [] });
+  try {
+    const u = new URL("https://www.googleapis.com/youtube/v3/search");
+    u.searchParams.set("part", "snippet");
+    u.searchParams.set("type", "video");
+    u.searchParams.set("videoEmbeddable", "true");
+    u.searchParams.set("maxResults", "12");
+    u.searchParams.set("safeSearch", "moderate");
+    if (req.query.long === "1") u.searchParams.set("videoDuration", "long");
+    u.searchParams.set("q", q);
+    u.searchParams.set("key", YT_KEY);
+    const r = await fetch(u);
+    const j = await r.json();
+    if (!r.ok) return res.status(502).json({ error: "YouTube: " + ((j.error && j.error.message) || "greška") });
+    const items = (j.items || []).filter(i => i.id && /^[\w-]{11}$/.test(i.id.videoId || "")).map(i => ({
+      id: i.id.videoId,
+      title: String(i.snippet.title || "").slice(0, 120),
+      channel: String(i.snippet.channelTitle || "").slice(0, 60),
+      thumb: "https://i.ytimg.com/vi/" + i.id.videoId + "/mqdefault.jpg"
+    }));
+    res.json({ items });
+  } catch (e) {
+    res.status(502).json({ error: "YouTube pretraga nije uspjela." });
+  }
+});
 
 const oauth = new OAuth2Client(CLIENT_ID || undefined);
 app.post("/auth/google", async (req, res) => {
@@ -104,9 +142,9 @@ function memberList(r) {
 }
 function videoNow(r) {
   const v = r.video;
-  if (!v.url) return { url: "", title: "", t: 0, playing: false };
+  if (!v.url) return { type: "", id: "", url: "", title: "", t: 0, playing: false };
   const t = v.playing ? v.t + (Date.now() - v.at) / 1000 : v.t;
-  return { url: v.url, title: v.title, t, playing: v.playing };
+  return { type: v.type || "file", id: v.id || "", url: v.url, title: v.title, t, playing: v.playing };
 }
 
 io.use((socket, next) => {
@@ -173,9 +211,18 @@ io.on("connection", socket => {
 
   socket.on("video:set", d => {
     const r = rooms.get(code); if (!r) return;
-    const url = String((d && d.url) || "").trim();
-    if (!/^https?:\/\//i.test(url) || url.length > 2000) return;
-    r.video = { url, title: String((d && d.title) || "").slice(0, 100), t: 0, playing: false, at: Date.now() };
+    const title = String((d && d.title) || "").slice(0, 100);
+    let vid;
+    if (d && d.type === "yt") {
+      const id = String(d.id || "");
+      if (!/^[\w-]{11}$/.test(id)) return;
+      vid = { type: "yt", id, url: "https://www.youtube.com/watch?v=" + id };
+    } else {
+      const url = String((d && d.url) || "").trim();
+      if (!/^https?:\/\//i.test(url) || url.length > 2000) return;
+      vid = { type: "file", id: "", url };
+    }
+    r.video = { ...vid, title, t: 0, playing: false, at: Date.now() };
     io.to(code).emit("video:set", videoNow(r));
   });
   socket.on("video:state", d => {
